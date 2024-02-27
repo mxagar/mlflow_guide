@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNet
 import mlflow
 import mlflow.sklearn
+from mlflow.models import infer_signature
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -57,27 +58,40 @@ if __name__ == "__main__":
 
     alpha = args.alpha
     l1_ratio = args.l1_ratio
+    
+    # It is recommended to fit and evaluate the model outside
+    # of the `with` context in which the run is logged:
+    # in case something goes wrong, no run is created
+    lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
+    lr.fit(train_x, train_y)
+    # Predict and evaluate
+    predicted_qualities = lr.predict(test_x)
+    (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+
+    print("Elasticnet model (alpha={:f}, l1_ratio={:f}):".format(alpha, l1_ratio))
+    print("  RMSE: %s" % rmse)
+    print("  MAE: %s" % mae)
+    print("  R2: %s" % r2)
+    
     # Create experiment, if not existent, else set it
     exp = mlflow.set_experiment(experiment_name="experment_1")
 
-    # Run experiments in with context
+    # Infer the model signature
+    signature = infer_signature(train_x, lr.predict(train_x))
+
+    # Log run in `with` context
     with mlflow.start_run(experiment_id=exp.experiment_id):
-        # Fit model
-        lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
-        lr.fit(train_x, train_y)
-        # Predict and evaluate
-        predicted_qualities = lr.predict(test_x)
-        (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
-
-        print("Elasticnet model (alpha={:f}, l1_ratio={:f}):".format(alpha, l1_ratio))
-        print("  RMSE: %s" % rmse)
-        print("  MAE: %s" % mae)
-        print("  R2: %s" % r2)
-
         # Log: parameters, metrics, model itself
         mlflow.log_param("alpha", alpha)
         mlflow.log_param("l1_ratio", l1_ratio)
         mlflow.log_metric("rmse", rmse)
         mlflow.log_metric("r2", r2)
         mlflow.log_metric("mae", mae)
-        mlflow.sklearn.log_model(lr, "mymodel") # dir name in the artifacts to dump model
+        mlflow.sklearn.log_model(
+            sk_model=lr,
+            artifact_path="wine_model", # dir name in the artifacts to dump model
+            signature=signature,
+            input_example=train_x[:2],
+            # If registered_model_name is given, the model is registered!
+            #registered_model_name=f"elasticnet-{alpha}-{l1_ratio}",
+        )
