@@ -24,7 +24,8 @@ In addition to the current repository, you might be interested in my notes on th
     - [MLflow UI - 01\_tracking](#mlflow-ui---01_tracking)
     - [Extra: MLflow Tracking Quickstart with Server, Model Registration and Loading](#extra-mlflow-tracking-quickstart-with-server-model-registration-and-loading)
   - [4. MLflow Logging Functions](#4-mlflow-logging-functions)
-    - [Get and Set Tracking URI](#get-and-set-tracking-uri)
+    - [Get and Set Tracking URI - 02\_logging](#get-and-set-tracking-uri---02_logging)
+    - [Creating and Setting the Experiment - 02\_logging](#creating-and-setting-the-experiment---02_logging)
   - [5. Launch Multiple Experiments and Runs](#5-launch-multiple-experiments-and-runs)
   - [6. Autologging in MLflow](#6-autologging-in-mlflow)
   - [7. Tracking Server  of MLflow](#7-tracking-server--of-mlflow)
@@ -192,20 +193,25 @@ Then, a folder `mlruns` is created, which contains all the information of the ex
 This `mlruns` folder is very important, and it contains the following
 
 ```
-.trash/           # deleted infor of experiments, runs, etc.
-0/                # default experiment, ignore it
-99xxx/            # our experiment, hashed id
-  meta.yaml       # experiment YAML: id, name, creation time, etc.
-  8c3xxx/         # a run, for each run we get a folder with an id
-    meta.yaml     # run YAML: id, name, experiment_id, time, etc.
+.trash/             # deleted infor of experiments, runs, etc.
+0/                  # default experiment, ignore it
+99xxx/              # our experiment, hashed id
+  meta.yaml         # experiment YAML: id, name, creation time, etc.
+  8c3xxx/           # a run, for each run we get a folder with an id
+    meta.yaml       # run YAML: id, name, experiment_id, time, etc.
     artifacts/
-      mymodel/    # dumped model: PKL, MLmodel, conda.yaml, requirements.txt, etc.
+      mymodel/      # dumped model: PKL, MLmodel, conda.yaml, requirements.txt, etc.
         ...
-    metrics/      # once ASCII file for each logged metric
-    params/       # once ASCII file for each logged param
-    tags/         # metadata tags, e.g.: run name, committ hash, filename, ...
-  6bdxxx/         # another run
+    metrics/        # once ASCII file for each logged metric
+    params/         # once ASCII file for each logged param
+    tags/           # metadata tags, e.g.: run name, committ hash, filename, ...
+  6bdxxx/           # another run
     ...
+models/             # model registry, if we have registered any model
+  <model_name>/
+    meta.yaml
+    version-x/
+      meta.yaml
 ```
 
  Notes:
@@ -371,9 +377,54 @@ print(result[:4])
 
 In this section `mlflow.log_*` functions are explained in detail.
 
-### Get and Set Tracking URI
+### Get and Set Tracking URI - 02_logging
 
+We can use MLflow tracking in different ways:
 
+- If we simply write python code, `mlruns` is created locally and all information is stored there. Then, we start `mlflow ui` in the terminal, in the folder which contains `mlruns`, to visualize the results.
+- We can also run `mlflow server --host <HOST> --port <PORT>`; in that case, in our code we need to `mlflow.set_tracking_uri(http://<HOST>:<PORT>)` to connect to the tracking server and to open the UI we need to open `http://<HOST>:<PORT>` with the browser.
+- Additionally, we can use `set_tracking_uri()` to define in the code where the data is/should be stored. Similarly, `get_tracking_uri()` retrieves the location.
+
+Possible parameter values for `set_tracking_uri()`
+
+    empty string: data saved automatically in ./mlruns
+    local folder name: "./my_folder"
+    file path: "file:/Users/username/path/to/file" (no C:)
+    URL:
+      (local) "http://localhost:5000"
+      (remote) "https://my-tracking-server:5000"
+    databricks workspace: "databricks://<profileName>"
+
+The file [`02_logging/uri.py`](./examples/02_logging/uri.py) is the same as [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py), but with these new lines:
+
+```python
+# We set the empty URI
+mlflow.set_tracking_uri(uri="")
+# We get the URI
+print("The set tracking uri is ", mlflow.get_tracking_uri()) # ""
+# Create experiment, if not existent, else set it
+exp = mlflow.set_experiment(experiment_name="experment_1")
+```
+
+If we change:
+
+- `uri="my_tracking"`
+- `experiment_name="experiment_2"`
+
+Then, we're going to get a new folder `my_tracking` beside usual `mlruns`.
+
+We can run the script as follows:
+
+```bash
+conda activate mlflow
+cd .../examples/02_logging
+python ./uri.py
+
+# To start the UI pointing to that tracking folder
+mlflow ui --backend-store-uri 'my_tracking'
+```
+
+### Creating and Setting the Experiment - 02_logging
 
 ## 5. Launch Multiple Experiments and Runs
 
