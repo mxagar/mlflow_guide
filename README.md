@@ -22,6 +22,7 @@ In addition to the current repository, you might be interested in my notes on th
   - [3. MLflow Tracking Component](#3-mlflow-tracking-component)
     - [Basic Tracking - 01\_tracking](#basic-tracking---01_tracking)
     - [MLflow UI - 01\_tracking](#mlflow-ui---01_tracking)
+    - [Extra: MLflow Tracking Quickstart](#extra-mlflow-tracking-quickstart)
   - [4. MLflow Logging Functions](#4-mlflow-logging-functions)
   - [5. Launch Multiple Experiments and Runs](#5-launch-multiple-experiments-and-runs)
   - [6. Autologging in MLflow](#6-autologging-in-mlflow)
@@ -127,8 +128,6 @@ MLflow distinguishes:
   - each with a defined set of hyperparameters, which can be specific to the run and a specific code version,
   - and where run metrics can be saved.
 
-See also: [MLflow Tracking Quickstart](https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html)
-
 In the section example, a regularized linear regression is run using `ElasticNet` from `sklearn` (it combines L1 and L2 regularizations).
 
 Summary of [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py):
@@ -137,37 +136,50 @@ Summary of [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/bas
 # Imports
 import mlflow
 import mlflow.sklearn
+from mlflow.models import infer_signature
 
 # ...
+# Fit model
+# It is recommended to fit and evaluate the model outside
+# of the `with` context in which the run is logged:
+# in case something goes wrong, no run is created
+lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
+lr.fit(train_x, train_y)
+# Predict and evaluate
+predicted_qualities = lr.predict(test_x)
+(rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+
 # Create experiment, if not existent, else set it
 exp = mlflow.set_experiment(experiment_name="experment_1")
 
-# ...
-# Run experiments in with context
-with mlflow.start_run(experiment_id=exp.experiment_id):
-    # Fit model
-    lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
-    lr.fit(train_x, train_y)
-    
-    # Predict and evaluate
-    predicted_qualities = lr.predict(test_x)
-    (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+# Infer the model signature
+signature = infer_signature(train_x, lr.predict(train_x))
 
+# Log run in with context
+with mlflow.start_run(experiment_id=exp.experiment_id):    
     # Log: parameters, metrics, model itself
     mlflow.log_param("alpha", alpha)
     mlflow.log_param("l1_ratio", l1_ratio)
     mlflow.log_metric("rmse", rmse)
     mlflow.log_metric("r2", r2)
     mlflow.log_metric("mae", mae)
-    mlflow.sklearn.log_model(lr, "mymodel") # dir name in the artifacts to dump model
+    mlflow.sklearn.log_model(
+        sk_model=lr,
+        artifact_path="wine_model", # dir name in the artifacts to dump model
+        signature=signature,
+        input_example=train_x[:2],
+        # If registered_model_name is given, the model is registered!
+        #registered_model_name=f"elasticnet-{alpha}-{l1_ratio}",
+    )
 ```
 
 We can run the script as follows:
 
 ```bash
-cd examples/01_tracking
+conda activate mlflow
+cd .../examples/01_tracking
 # Run 1
-python ./basic_regression_mlflow.py # default parameters
+python ./basic_regression_mlflow.py # default parameters: 0.7, 0.7
 # Run 2
 python ./basic_regression_mlflow.py --alpha 0.5 --l1_ratio 0.1
 # Run 3
@@ -199,13 +211,159 @@ This `mlruns` folder is very important, and it contains the following
 
 - We can specify where this `mlruns` folder is created.
 - Usually, the `mlruns` folder should be in a remote server; if local, we should add it to `.gitignore`.
-- Note that `artifacts/` contains everything necessary to re-create the environment and load the trained model!
+- **Note that `artifacts/` contains everything necessary to re-create the environment and load the trained model!**
+- **We have logged the model, but it's not registered unless the parameter `registered_model_name` is passed, i.e., there's no central model registry yet without the registering name!**
 - Usually, the UI is used to visualize the metrics; see below.
-
 
 ### MLflow UI - 01_tracking
 
+The results of executing different runs can be viewed in a web UI:
 
+```bash
+conda activate mlflow
+# Go to the folder where the experiment/runs are
+cd .../examples/01_tracking
+# Serve web UI
+mlflow ui
+# Open http://127.0.0.1:5000 in browser
+```
+
+The UI has two main tabs: `Experiments` and ``Models`.
+
+In `Models`, we can see the registered models.
+
+In `Experiments`, we can select our `experiment_1` and run information is shown:
+
+- We see each run has a (default) name assigned, if not given explicitly.
+- Creation time stamp appears.
+- We can add param/metric columns.
+- We can filter/sort with column values.
+- We can select Table/Chart/Evaluation views.
+- We can select >= 2 runs and click on `Compare`; different comparison plots are possible: 
+  - Parallel plot
+  - Scatter plot
+  - Box plot
+  - Contour plot
+- We can click on each run and view its details:
+  - Parameters
+  - Metrics
+  - Artifacts: here we see the model and we can register it if we consider the run produced a good one.
+
+![MLflow Experiments: UI](./assets/mlflow_experiments_ui.jpg)
+
+![MLflow Experiments Plots: UI](./assets/mlflow_experiments_ui_plots.jpg)
+
+![MLflow Experiment Run: UI](./assets/mlflow_experiments_ui_run.jpg)
+
+### Extra: MLflow Tracking Quickstart
+
+Source: [MLflow Tracking Quickstart](https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html)
+
+In addition to the example above, this other (official) example is also interesting: The Iris dataset is used to fit a logistic regression. These new points are shown:
+
+- A dedicated server is started with `mlflow server`; beforehand, we did not explicitly start a server. We can start a server to, e.g., have a local/remote server instance. In the following example, a local server is started. We need to explicitly use the server URI in the code. Additionally, since we now have a server, we don't run `mlflow ui`, but we simply open the server URI.
+- MLflow tracking/logging is done.
+- The model is loaded using `mlflow.pyfunc.load_model()` and used to generate some predictions.
+
+A server is created as follows:
+
+```bash
+mlflow server --host 127.0.0.1 --port 8080
+# URI: http://127.0.0.1:8080, http://localhost:8080
+# To open the UI go to that URI with the browser
+```
+
+Example code:
+
+1. ML training and evaluation
+2. MLflow tracking with model registration
+3. MLflow model loading and using
+
+```python
+import mlflow
+from mlflow.models import infer_signature
+
+import pandas as pd
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+### -- 1. ML Training and evaluation
+
+# Load the Iris dataset
+X, y = datasets.load_iris(return_X_y=True)
+
+# Split the data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Define the model hyperparameters
+params = {
+    "solver": "lbfgs",
+    "max_iter": 1000,
+    "multi_class": "auto",
+    "random_state": 8888,
+}
+
+# Train the model
+lr = LogisticRegression(**params)
+lr.fit(X_train, y_train)
+
+# Predict on the test set
+y_pred = lr.predict(X_test)
+
+# Calculate metrics
+accuracy = accuracy_score(y_test, y_pred)
+
+### -- 2. MLflow tracking with model registration
+
+# Set our tracking server uri for logging
+mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+
+# Create a new MLflow Experiment
+mlflow.set_experiment("MLflow Quickstart")
+
+# Start an MLflow run
+with mlflow.start_run():
+    # Log the hyperparameters
+    mlflow.log_params(params)
+
+    # Log the loss metric
+    mlflow.log_metric("accuracy", accuracy)
+
+    # Set a tag that we can use to remind ourselves what this run was for
+    mlflow.set_tag("Training Info", "Basic LR model for iris data")
+
+    # Infer the model signature
+    signature = infer_signature(X_train, lr.predict(X_train))
+
+    # Log the model
+    model_info = mlflow.sklearn.log_model(
+        sk_model=lr,
+        artifact_path="iris_model",
+        signature=signature,
+        input_example=X_train,
+        registered_model_name="tracking-quickstart",
+    )
+
+### -- 3. MLflow model loading and using
+
+# Load the model back for predictions as a generic Python Function model
+loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+predictions = loaded_model.predict(X_test)
+
+iris_feature_names = datasets.load_iris().feature_names
+
+result = pd.DataFrame(X_test, columns=iris_feature_names)
+result["actual_class"] = y_test
+result["predicted_class"] = predictions
+
+print(result[:4])
+
+```
 
 ## 4. MLflow Logging Functions
 
