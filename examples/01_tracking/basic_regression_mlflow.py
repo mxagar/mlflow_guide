@@ -1,15 +1,14 @@
 '''Basic Linear Regression, regularized with ElasticNet.
 
-Code from the Udemy course
+Original code from the Udemy course
 
     MLflow in Action - Master the art of MLOps using MLflow tool
     https://www.udemy.com/course/mlflow-course/
 
-Author: J Garg, Real Time Learning
+    Author: J Garg, Real Time Learning
 
-See also: https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html
+Modified following https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html
 '''
-
 import warnings
 import argparse
 import logging
@@ -44,8 +43,8 @@ if __name__ == "__main__":
     np.random.seed(40)
 
     # Read the wine-quality csv file from local
-    data = pd.read_csv("red-wine-quality.csv")
-    data.to_csv("red-wine-quality.csv", index=False)
+    data = pd.read_csv("../data/red-wine-quality.csv")
+    data.to_csv("../data/red-wine-quality.csv", index=False)
 
     # Split the data into training and test sets. (0.75, 0.25) split.
     train, test = train_test_split(data)
