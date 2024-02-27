@@ -1,0 +1,13 @@
+numpy
+pandas
+matplotlib
+scikit-learn
+torch
+transformers
+tensorflow
+optuna
+PyYAML
+pytest
+python-dotenv
+jupyter
+mlflow
