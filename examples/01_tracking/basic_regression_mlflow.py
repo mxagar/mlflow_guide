@@ -6,6 +6,8 @@ Code from the Udemy course
     https://www.udemy.com/course/mlflow-course/
 
 Author: J Garg, Real Time Learning
+
+See also: https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html
 '''
 
 import warnings
@@ -55,14 +57,16 @@ if __name__ == "__main__":
 
     alpha = args.alpha
     l1_ratio = args.l1_ratio
+    # Create experiment, if not existent, else set it
     exp = mlflow.set_experiment(experiment_name="experment_1")
 
+    # Run experiments in with context
     with mlflow.start_run(experiment_id=exp.experiment_id):
+        # Fit model
         lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
         lr.fit(train_x, train_y)
-
+        # Predict and evaluate
         predicted_qualities = lr.predict(test_x)
-
         (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 
         print("Elasticnet model (alpha={:f}, l1_ratio={:f}):".format(alpha, l1_ratio))
@@ -70,9 +74,10 @@ if __name__ == "__main__":
         print("  MAE: %s" % mae)
         print("  R2: %s" % r2)
 
+        # Log: parameters, metrics, model itself
         mlflow.log_param("alpha", alpha)
         mlflow.log_param("l1_ratio", l1_ratio)
         mlflow.log_metric("rmse", rmse)
         mlflow.log_metric("r2", r2)
         mlflow.log_metric("mae", mae)
-        mlflow.sklearn.log_model(lr, "mymodel")
+        mlflow.sklearn.log_model(lr, "mymodel") # dir name in the artifacts to dump model
