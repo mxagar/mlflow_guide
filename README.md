@@ -22,8 +22,9 @@ In addition to the current repository, you might be interested in my notes on th
   - [3. MLflow Tracking Component](#3-mlflow-tracking-component)
     - [Basic Tracking - 01\_tracking](#basic-tracking---01_tracking)
     - [MLflow UI - 01\_tracking](#mlflow-ui---01_tracking)
-    - [Extra: MLflow Tracking Quickstart](#extra-mlflow-tracking-quickstart)
+    - [Extra: MLflow Tracking Quickstart with Server, Model Registration and Loading](#extra-mlflow-tracking-quickstart-with-server-model-registration-and-loading)
   - [4. MLflow Logging Functions](#4-mlflow-logging-functions)
+    - [Get and Set Tracking URI](#get-and-set-tracking-uri)
   - [5. Launch Multiple Experiments and Runs](#5-launch-multiple-experiments-and-runs)
   - [6. Autologging in MLflow](#6-autologging-in-mlflow)
   - [7. Tracking Server  of MLflow](#7-tracking-server--of-mlflow)
@@ -239,6 +240,7 @@ In `Experiments`, we can select our `experiment_1` and run information is shown:
 - We can add param/metric columns.
 - We can filter/sort with column values.
 - We can select Table/Chart/Evaluation views.
+- We can download the runs as a CSV.
 - We can select >= 2 runs and click on `Compare`; different comparison plots are possible: 
   - Parallel plot
   - Scatter plot
@@ -255,14 +257,14 @@ In `Experiments`, we can select our `experiment_1` and run information is shown:
 
 ![MLflow Experiment Run: UI](./assets/mlflow_experiments_ui_run.jpg)
 
-### Extra: MLflow Tracking Quickstart
+### Extra: MLflow Tracking Quickstart with Server, Model Registration and Loading
 
 Source: [MLflow Tracking Quickstart](https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html)
 
 In addition to the example above, this other (official) example is also interesting: The Iris dataset is used to fit a logistic regression. These new points are shown:
 
 - A dedicated server is started with `mlflow server`; beforehand, we did not explicitly start a server. We can start a server to, e.g., have a local/remote server instance. In the following example, a local server is started. We need to explicitly use the server URI in the code. Additionally, since we now have a server, we don't run `mlflow ui`, but we simply open the server URI.
-- MLflow tracking/logging is done.
+- MLflow tracking/logging is done using the server URI.
 - The model is loaded using `mlflow.pyfunc.load_model()` and used to generate some predictions.
 
 A server is created as follows:
@@ -366,6 +368,12 @@ print(result[:4])
 ```
 
 ## 4. MLflow Logging Functions
+
+In this section `mlflow.log_*` functions are explained in detail.
+
+### Get and Set Tracking URI
+
+
 
 ## 5. Launch Multiple Experiments and Runs
 
