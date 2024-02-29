@@ -25,10 +25,11 @@ In addition to the current repository, you might be interested in my notes on th
     - [Extra: MLflow Tracking Quickstart with Server, Model Registration and Loading](#extra-mlflow-tracking-quickstart-with-server-model-registration-and-loading)
   - [4. MLflow Logging Functions](#4-mlflow-logging-functions)
     - [Get and Set Tracking URI - 02\_logging](#get-and-set-tracking-uri---02_logging)
-    - [Creating and Setting the Experiment - 02\_logging](#creating-and-setting-the-experiment---02_logging)
+    - [Experiment: Creating and Setting - 02\_logging](#experiment-creating-and-setting---02_logging)
+    - [Runs: Starting and Ending - 02\_logging](#runs-starting-and-ending---02_logging)
   - [5. Launch Multiple Experiments and Runs](#5-launch-multiple-experiments-and-runs)
   - [6. Autologging in MLflow](#6-autologging-in-mlflow)
-  - [7. Tracking Server  of MLflow](#7-tracking-server--of-mlflow)
+  - [7. Tracking Server of MLflow](#7-tracking-server-of-mlflow)
   - [8. MLflow Model Component](#8-mlflow-model-component)
   - [9. Handling Customized Models in MLflow](#9-handling-customized-models-in-mlflow)
   - [10. MLflow Model Evaluation](#10-mlflow-model-evaluation)
@@ -424,13 +425,56 @@ python ./uri.py
 mlflow ui --backend-store-uri 'my_tracking'
 ```
 
-### Creating and Setting the Experiment - 02_logging
+### Experiment: Creating and Setting - 02_logging
+
+Original MLflow documentation:
+
+- [Creating Experiments](https://mlflow.org/docs/latest/getting-started/logging-first-model/step3-create-experiment.html)
+- [`mlflow.create_experiment()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.create_experiment)
+- [`mlflow.set_experiment()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.set_experiment)
+
+The file [`02_logging/experiment.py`](./examples/02_logging/uri.py) is the same as [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py), but with these new lines:
+
+```python
+from pathlib import Path
+
+# Create new experiment
+# - name: unique name
+# - artifact_location: location to store run artifacts, default: artifacts
+# - tags: optional dictionary of string keys and values to set tags
+# Return: id
+exp_id = mlflow.create_experiment(
+    name="exp_create_exp_artifact",
+    tags={"version": "v1", "priority": "p1"},
+    artifact_location=Path.cwd().joinpath("myartifacts").as_uri() # must be a URI: file://...
+)
+
+exp = mlflow.get_experiment(exp_id)
+print("Name: {}".format(exp.name)) # exp_create_exp_artifact
+print("Experiment_id: {}".format(exp.experiment_id)) # 473668474626843335
+print("Artifact Location: {}".format(exp.artifact_location)) # file:///C:/Users/.../mlflow_guide/examples/02_logging/myartifacts
+print("Tags: {}".format(exp.tags)) # {'priority': 'p1', 'version': 'v1'}
+print("Lifecycle_stage: {}".format(exp.lifecycle_stage)) # active
+print("Creation timestamp: {}".format(exp.creation_time)) # 1709202652141
+
+# Set existent experiment; not existent, it is created
+# - name
+# - experiment_id
+# Return: experiment object itself, not the id as in create_experiment!
+exp = mlflow.set_experiment(
+    name="exp_create_exp_artifact"
+)
+```
+
+### Runs: Starting and Ending - 02_logging
+
+
 
 ## 5. Launch Multiple Experiments and Runs
 
 ## 6. Autologging in MLflow
 
-## 7. Tracking Server  of MLflow
+## 7. Tracking Server of MLflow
 
 ## 8. MLflow Model Component
 
