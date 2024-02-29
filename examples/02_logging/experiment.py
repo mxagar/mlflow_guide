@@ -24,13 +24,13 @@ from pathlib import Path
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
-# get arguments from command
+# Get arguments from command
 parser = argparse.ArgumentParser()
 parser.add_argument("--alpha", type=float, required=False, default=0.7)
 parser.add_argument("--l1_ratio", type=float, required=False, default=0.7)
 args = parser.parse_args()
 
-# evaluation function
+# Evaluation function
 def eval_metrics(actual, pred):
     rmse = np.sqrt(mean_squared_error(actual, pred))
     mae = mean_absolute_error(actual, pred)
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     np.random.seed(40)
 
     # Read the wine-quality csv file from the URL
-    data = pd.read_csv("red-wine-quality.csv")
+    data = pd.read_csv("../data/red-wine-quality.csv")
 
     # Split the data into training and test sets. (0.75, 0.25) split.
     train, test = train_test_split(data)
@@ -63,16 +63,16 @@ if __name__ == "__main__":
     exp_id = mlflow.create_experiment(
         name="exp_create_exp_artifact",
         tags={"version": "v1", "priority": "p1"},
-        artifact_location=Path.cwd().joinpath("myartifacts").as_uri()
+        artifact_location=Path.cwd().joinpath("myartifacts").as_uri() # must be a URI: file://...
     )
     get_exp = mlflow.get_experiment(exp_id)
 
-    print("Name: {}".format(get_exp.name))
-    print("Experiment_id: {}".format(get_exp.experiment_id))
-    print("Artifact Location: {}".format(get_exp.artifact_location))
-    print("Tags: {}".format(get_exp.tags))
-    print("Lifecycle_stage: {}".format(get_exp.lifecycle_stage))
-    print("Creation timestamp: {}".format(get_exp.creation_time))
+    print("Name: {}".format(get_exp.name)) # exp_create_exp_artifact
+    print("Experiment_id: {}".format(get_exp.experiment_id)) # 473668474626843335
+    print("Artifact Location: {}".format(get_exp.artifact_location)) # file:///C:/Users/.../mlflow_guide/examples/02_logging/myartifacts
+    print("Tags: {}".format(get_exp.tags)) # {'priority': 'p1', 'version': 'v1'}
+    print("Lifecycle_stage: {}".format(get_exp.lifecycle_stage)) # active
+    print("Creation timestamp: {}".format(get_exp.creation_time)) # 1709202652141
 
     with mlflow.start_run(experiment_id=exp_id):
         lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
