@@ -10,6 +10,7 @@ Table of contents:
   - [MLflow Server and UI](#mlflow-server-and-ui)
   - [Tracking: Logging](#tracking-logging)
     - [Experiments: Parameters](#experiments-parameters)
+    - [Runs: Handling](#runs-handling)
 
 ## Tracking: Basic Example
 
@@ -118,4 +119,35 @@ print("Creation timestamp: {}".format(exp.creation_time)) # 1709202652141
 exp = mlflow.set_experiment(
     name="exp_create_exp_artifact"
 )
+```
+
+### Runs: Handling
+
+We can start runs outside from `with` contexts.
+
+```python
+# Start a run
+# - run_id: optional; we can set it to overwrite runs, for instance
+# - experiment_id: optional
+# - run_name: optional, if run_id not specified
+# - nested: to create a run within a run, set it to True
+# - tags
+# - description
+# Returns: mlflow.ActiveRun context manager that can be used in `with` block
+active_run = mlflow.start_run()
+
+# If we don't call start_run() inside a with, we need to stop it
+# - status = "FINISHED" (default), "SCHEDULED", "FAILED", "KILLED"
+mlflow.end_run()
+
+# Get current active run
+# Returns ActiveRun context manager
+active_run = mlflow.active_run()
+
+# Get the last run which was active, called after end_run()
+# Returns Run object
+mlflow.end_run()
+run = mlflow.last_active_run()
+print("Active run id is {}".format(run.info.run_id)) # 02ae930f5f2348c6bc3b411bb7de297a
+print("Active run name is {}".format(run.info.run_name)) # traveling-tern-43
 ```

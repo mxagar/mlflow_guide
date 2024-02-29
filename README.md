@@ -433,7 +433,7 @@ Original MLflow documentation:
 - [`mlflow.create_experiment()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.create_experiment)
 - [`mlflow.set_experiment()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.set_experiment)
 
-The file [`02_logging/experiment.py`](./examples/02_logging/uri.py) is the same as [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py), but with these new lines:
+The file [`02_logging/experiment.py`](./examples/02_logging/experiment.py) is the same as [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py), but with these new lines:
 
 ```python
 from pathlib import Path
@@ -468,6 +468,43 @@ exp = mlflow.set_experiment(
 
 ### Runs: Starting and Ending - 02_logging
 
+We can start runs outside from `with` contexts.
+
+Original documentation links:
+
+- [`mlflow.start_run()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.start_run)
+- [`mlflow.end_run()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.end_run)
+- [`mlflow.active_run()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.active_run)
+- [`mlflow.last_active_run()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.last_active_run)
+
+The file [`02_logging/run.py`](./examples/02_logging/run.py) is the same as [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py), but with these new lines:
+
+```python
+# Start a run
+# - run_id: optional; we can set it to overwrite runs, for instance
+# - experiment_id: optional
+# - run_name: optional, if run_id not specified
+# - nested: to create a run within a run, set it to True
+# - tags
+# - description
+# Returns: mlflow.ActiveRun context manager that can be used in `with` block
+active_run = mlflow.start_run()
+
+# If we don't call start_run() inside a with, we need to stop it
+# - status = "FINISHED" (default), "SCHEDULED", "FAILED", "KILLED"
+mlflow.end_run()
+
+# Get current active run
+# Returns ActiveRun context manager
+active_run = mlflow.active_run()
+
+# Get the last run which was active, called after end_run()
+# Returns Run object
+mlflow.end_run()
+run = mlflow.last_active_run()
+print("Active run id is {}".format(run.info.run_id)) # 02ae930f5f2348c6bc3b411bb7de297a
+print("Active run name is {}".format(run.info.run_name)) # traveling-tern-43
+```
 
 
 ## 5. Launch Multiple Experiments and Runs
