@@ -43,7 +43,7 @@ if __name__ == "__main__":
     np.random.seed(40)
 
     # Read the wine-quality csv file from the URL
-    data = pd.read_csv("red-wine-quality.csv")
+    data = pd.read_csv("../data/red-wine-quality.csv")
 
     # Split the data into training and test sets. (0.75, 0.25) split.
     train, test = train_test_split(data)
@@ -90,8 +90,8 @@ if __name__ == "__main__":
     mlflow.log_metric("mae", mae)
     mlflow.sklearn.log_model(lr, "my_new_model_1")
 
-
     mlflow.end_run()
     run = mlflow.last_active_run()
-    print("Active run id is {}".format(run.info.run_id))
-    print("Active run name is {}".format(run.info.run_name))
+    print("Active run id is {}".format(run.info.run_id)) # 02ae930f5f2348c6bc3b411bb7de297a
+    print("Active run name is {}".format(run.info.run_name)) # traveling-tern-43
+    
