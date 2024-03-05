@@ -27,6 +27,7 @@ In addition to the current repository, you might be interested in my notes on th
     - [Get and Set Tracking URI - 02\_logging](#get-and-set-tracking-uri---02_logging)
     - [Experiment: Creating and Setting - 02\_logging](#experiment-creating-and-setting---02_logging)
     - [Runs: Starting and Ending - 02\_logging](#runs-starting-and-ending---02_logging)
+    - [Logging Parameters, Metrics, Artifacts and Tags](#logging-parameters-metrics-artifacts-and-tags)
   - [5. Launch Multiple Experiments and Runs](#5-launch-multiple-experiments-and-runs)
   - [6. Autologging in MLflow](#6-autologging-in-mlflow)
   - [7. Tracking Server of MLflow](#7-tracking-server-of-mlflow)
@@ -506,6 +507,64 @@ print("Active run id is {}".format(run.info.run_id)) # 02ae930f5f2348c6bc3b411bb
 print("Active run name is {}".format(run.info.run_name)) # traveling-tern-43
 ```
 
+### Logging Parameters, Metrics, Artifacts and Tags
+
+We have several options to log parameters, metrics and artifacts, as shown below.
+
+The file [`02_logging/artifact.py`](./examples/02_logging/artifact.py) is similar to [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py); these are the 
+
+```python
+## -- Parameters
+
+# Hyperparameters passed as key-value pairs
+mlflow.log_param(key: str, value: Any) # single hyperparam -> Returns logged param!
+mlflow.log_params(params: Dict[str, Any]) # multiple hyperparams -> No return
+mlflow.log_params(params={"alpha": alpha, "l1_ratio": l1_ratio})
+
+## -- Metrics
+
+# Metrics passed as key-value pairs: RMSE, etc.
+mlflow.log_metric(key: str, value: float, step: Optional[int] = None) # single -> No return
+mlflow.log_metrics(metrics: Dict[str, float], step: Optional[int] = None) # multiple -> No return
+mlflow.log_metrics(metrics={"mae": mae, "r2": r2})
+
+## -- Artifacts
+
+# Log artifacts: datasets, etc.
+# We can also log models, but it's better to use mlflow.<framework>.log_model for that
+# We pass the local_path where the artifact is
+# and it will be stored in the mlruns folder, in the default path for the artifacts,
+# unless we specify a different artifact_path
+mlflow.log_artifact(local_path: str, artifact_path: Optional[str] = None) # single -> No return
+# The multiple case takes a directory, and all the files within it are stored
+# Use-cases: Computer Vision, folder with images; train/test splits
+mlflow.log_artifacts(local_dir: str, artifact_path: Optional[str] = None) # multiple
+
+# Example
+# local dataset: org & train/test split
+data = pd.read_csv("../data/red-wine-quality.csv")
+Path("./data/").mkdir(parents=True, exist_ok=True)
+data.to_csv("data/red-wine-quality.csv", index=False)
+train, test = train_test_split(data)
+train.to_csv("data/train.csv")
+test.to_csv("data/test.csv")
+mlflow.log_artifacts("data/")
+
+# Get the absolute URI of an artifact
+# If we input the artifact_path, the URI of the specific artifact is returned,
+# else, the URI of the current artifact directory is returned.
+artifacts_uri = mlflow.get_artifact_uri(artifact_path: Optional[str] = None)
+
+artifacts_uri = mlflow.get_artifact_uri() # file://.../exp_xxx/run_yyy/artifacts
+artifacts_uri = mlflow.get_artifact_uri(artifact_path="data/train.csv") # file://.../exp_xxx/run_yyy/artifacts/data/train.csv
+
+## -- Tags
+# Tags are used to group runs; mlflow creates also some internal tags automatically
+# Tags are assigned to a run, so they can be set between start & end
+mlflow.set_tag(key: str, value: Any) # single -> No return
+mlflow.set_tags(tags: Dict[str, Any]) # multiple -> No return
+mlflow.set_tags(tags={"version": "1.0", "environment": "dev"})
+```
 
 ## 5. Launch Multiple Experiments and Runs
 
