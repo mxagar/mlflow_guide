@@ -7,7 +7,7 @@ See the source guide in [`README.md`](./README.md).
 Table of contents:
 - [A Summary of the Most Important MLflow commands](#a-summary-of-the-most-important-mlflow-commands)
   - [Tracking: Basic Example](#tracking-basic-example)
-  - [MLflow Server and UI](#mlflow-server-and-ui)
+  - [MLflow Server, UI and Storage](#mlflow-server-ui-and-storage)
   - [Tracking: Logging](#tracking-logging)
     - [Experiments: Parameters](#experiments-parameters)
     - [Runs: Handling](#runs-handling)
@@ -71,7 +71,24 @@ loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 predictions = loaded_model.predict(test_x)
 ```
 
-## MLflow Server and UI
+## MLflow Server, UI and Storage
+
+We can open the MLflow UI in several ways:
+
+- Via `mlflow ui`: we open the UI by default reading the local `mlruns` folder.
+- Via `mlflow server`: we start a server and the `mlflow` library communicates with that server via REST; when a server is launched, we define a URI &mdash; if we open the URI, we see the UI.
+
+Even though for the user starting or not starting the server seems to have minimal effects on the operations (only the URI needs to be set), the underlying architecture is different:
+
+- When no server is launched, `mlflow` is used as a library which creates/stores some files.
+- When a server is launched, the `mlflow` library communicates to a server (REST) which creates/stores some files.
+
+Additionally, we can store two types of things either locally or remotely:
+
+- Backend store: parameters, metrics, tags, etc. These are stored either in files or in SQL DBs (locally or remotely): SQLite, PostgeSQL, MySQL, etc.
+- Artifact store: artifacts, models, images, etc. These are stored either in local folders or in remote/cloud storage: Amazon S3, etc.
+
+Here are some commands for openining the UI or launching a server with different storage configurations:
 
 ```bash
 conda activate mlflow
@@ -92,6 +109,17 @@ mlflow server --host 127.0.0.1 --port 8080
 
 # To start the UI pointing to another tracking folder than mlruns
 mlflow ui --backend-store-uri 'my_tracking'
+
+# MLflow locally with Tracking Server
+# --backend-store-uri: We specify our backend store, here a SQLite DB
+# --default-artifact-root: Directory where artifacts are stored, by default mlruns, here ./mlflow-artifacts 
+# --host, --port: Where the server is running, and the port; here localhost:5000
+mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlflow-artifacts --host 127.0.0.1 --port 5000
+# Then, we can browse http.://127.0.0.1:5000
+# In the exeperimentes, the tracking URI is http.://127.0.0.1:5000
+
+# Remote and Distributed: MLflow with remote Tracking Server and cloud/remote storages
+mlflow server --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb --default-artifact-root s3://bucket_name --host remote_host --no-serve-artifacts
 ```
 
 ## Tracking: Logging

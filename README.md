@@ -272,7 +272,7 @@ Source: [MLflow Tracking Quickstart](https://mlflow.org/docs/latest/getting-star
 
 In addition to the example above, this other (official) example is also interesting: The Iris dataset is used to fit a logistic regression. These new points are shown:
 
-- A dedicated server is started with `mlflow server`; beforehand, we did not explicitly start a server. We can start a server to, e.g., have a local/remote server instance. In the following example, a local server is started. We need to explicitly use the server URI in the code. Additionally, since we now have a server, we don't run `mlflow ui`, but we simply open the server URI.
+- A dedicated server is started with `mlflow server`; beforehand, we did not explicitly start a server, i.e., the library operated without any servers. We can start a server to, e.g., have a local/remote server instance. In the following example, a local server is started. In those cases, we need to explicitly use the server URI in the code. Additionally, since we now have a server, we don't run `mlflow ui`, but we simply open the server URI.
 - MLflow tracking/logging is done using the server URI.
 - The model is loaded using `mlflow.pyfunc.load_model()` and used to generate some predictions.
 
@@ -283,6 +283,13 @@ mlflow server --host 127.0.0.1 --port 8080
 # URI: http://127.0.0.1:8080, http://localhost:8080
 # To open the UI go to that URI with the browser
 ```
+
+Even though for the user starting or not starting the server seems to have minimal effects on the operations (only the URI needs to be set), the underlying architecture is different:
+
+- When no server is launched, `mlflow` is used as a library which creates/stores some files.
+- When a server is launched, the `mlflow` library communicates to a server (REST) which creates/stores some files.
+
+For more information on the **tracking server**, see the section [7. Tracking Server of MLflow](#7-tracking-server-of-mlflow).
 
 Example code:
 
@@ -637,6 +644,60 @@ mlflow.sklearn.autolog(...)
 ```
 
 ## 7. Tracking Server of MLflow
+
+Instead of storing everything locally on `./mlruns`, we can launch a **tracking server** hosted loally or remotely, as explained in the section [Extra; MLflow Tracking Quickstart with Server Model Registration and Loading](#extra-mlflow-tracking-quickstart-with-server-model-registration-and-loading). Then, the experiments are run on the *client*, which sends the information to the *server*.
+
+The tracking server has 2 components:
+
+- Storage: We have two types, and both can be local/remote:
+  - **Backend store**: metadata, parameters, metrics, etc. We have two types:
+    - DB Stores: SQLite, MySQL, PostgreSQL, MsSql
+    - File Stores: local, Amazon S3, etc.
+  - **Artifact store**: artifacts, models, images, etc. Can be also local or remote!
+- Networking (communication): we stablish communucation between the client and the server. We have three types of communication:
+  - **REST API (HTTP)**
+  - RPC (gRPC)
+  - Proxy access: restricted access depending on user/role
+
+For small projects, we can have everythung locally; however, as the projects get larger, we should have remote/distributed architectures.
+
+We can consider several scenarios:
+
+1. MLflow locally:
+  - client: local machine where experiments run
+  - localhost:5000, but no separate server, i.e., no `mlflow server` launched
+  - artifact store in `./mlruns` or a specified folder
+  - backend store in `./mlruns` or a specified folder
+2. MLflow locally with SQLite:
+  - client: local machine where experiments run
+  - localhost:5000, but no separate server, i.e., no `mlflow server` launched
+  - artifact store in `./mlruns` or a specified folder
+  - **backend store in SQLite or similar DB, hosted locally**
+3. MLflow locally with Tracking Server
+  - client: local machine where experiments run; **client connects via REST to server**
+  - **localhost:5000, with separate server, i.e., launched via `mlflow server`**
+  - artifact store in `./mlruns` or a specified folder
+  - backend store in `./mlruns` or a specified folder
+4. Remote and Distributed: MLflow with remote Tracking Server and cloud/remote storages
+  - client: local machine where experiments run; **client connects via REST to server**
+  - **remotehost:port, remote server launched via `mlflow server` with ports exposed**
+  - **artifact store in an Amazon S3 bucket**
+  - **backend store in PostgreSQL DB hosted on an another machine/node**
+
+See all the parameters of the CLI command [`mlflow server`](https://mlflow.org/docs/latest/cli.html#mlflow-server). Here some example calls:
+
+```bash
+# Scenario 3: MLflow locally with Tracking Server
+# --backend-store-uri: We specify our backend store, here a SQLite DB
+# --default-artifact-root: Directory where artifacts are stored, by default mlruns, here ./mlflow-artifacts 
+# --host, --port: Where the server is running, and the port; here localhost:5000
+mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlflow-artifacts --host 127.0.0.1 --port 5000
+# Then, we can browse http.://127.0.0.1:5000
+# In the exeperimentes, the tracking URI is http.://127.0.0.1:5000
+
+# Scenario 4: Remote and Distributed: MLflow with remote Tracking Server and cloud/remote storages
+mlflow server --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb --default-artifact-root s3://bucket_name --host remote_host --no-serve-artifacts
+```
 
 ## 8. MLflow Model Component
 
