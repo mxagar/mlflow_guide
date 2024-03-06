@@ -25,13 +25,13 @@ import os
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
-# get arguments from command
+# Get arguments from command
 parser = argparse.ArgumentParser()
 parser.add_argument("--alpha", type=float, required=False, default=0.7)
 parser.add_argument("--l1_ratio", type=float, required=False, default=0.7)
 args = parser.parse_args()
 
-# evaluation function
+# Evaluation function
 def eval_metrics(actual, pred):
     rmse = np.sqrt(mean_squared_error(actual, pred))
     mae = mean_absolute_error(actual, pred)
@@ -92,20 +92,20 @@ if __name__ == "__main__":
     print("  RMSE: %s" % rmse)
     print("  MAE: %s" % mae)
     print("  R2: %s" % r2)
-    #log parameters
+    # Log parameters
     params ={
         "alpha": alpha,
         "l1_ratio": l1_ratio
     }
     mlflow.log_params(params)
-    #log metrics
+    # Log metrics
     metrics = {
         "rmse":rmse,
         "r2":r2,
         "mae":mae
     }
     mlflow.log_metrics(metrics)
-    #log model
+    # Log model
     mlflow.sklearn.log_model(lr, "my_new_model_1")
     mlflow.log_artifacts("data/")
 

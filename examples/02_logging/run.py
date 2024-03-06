@@ -24,13 +24,13 @@ from pathlib import Path
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
-# get arguments from command
+# Get arguments from command
 parser = argparse.ArgumentParser()
 parser.add_argument("--alpha", type=float, required=False, default=0.7)
 parser.add_argument("--l1_ratio", type=float, required=False, default=0.7)
 args = parser.parse_args()
 
-# evaluation function
+# Evaluation function
 def eval_metrics(actual, pred):
     rmse = np.sqrt(mean_squared_error(actual, pred))
     mae = mean_absolute_error(actual, pred)
