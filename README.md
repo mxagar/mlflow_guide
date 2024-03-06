@@ -156,7 +156,7 @@ predicted_qualities = lr.predict(test_x)
 # Create experiment, if not existent, else set it
 exp = mlflow.set_experiment(experiment_name="experment_1")
 
-# Infer the model signature
+# Infer the model signature: model input & output schemas
 signature = infer_signature(train_x, lr.predict(train_x))
 
 # Log run in with context
@@ -230,11 +230,12 @@ The results of executing different runs can be viewed in a web UI:
 
 ```bash
 conda activate mlflow
-# Go to the folder where the experiment/runs are
+# Go to the folder where the experiment/runs are, e.g., we should see the mlruns/ folder
 cd .../examples/01_tracking
 # Serve web UI
 mlflow ui
 # Open http://127.0.0.1:5000 in browser
+# The experiments and runs saved in the local mlruns folder are loaded
 ```
 
 The UI has two main tabs: `Experiments` and ``Models`.
@@ -346,7 +347,7 @@ with mlflow.start_run():
     # Set a tag that we can use to remind ourselves what this run was for
     mlflow.set_tag("Training Info", "Basic LR model for iris data")
 
-    # Infer the model signature
+    # Infer the model signature: model input and output schemas
     signature = infer_signature(X_train, lr.predict(X_train))
 
     # Log the model
@@ -568,7 +569,72 @@ mlflow.set_tags(tags={"version": "1.0", "environment": "dev"})
 
 ## 5. Launch Multiple Experiments and Runs
 
+In some cases we want to do several runs in the same training session:
+
+- When we perform *incremental training*, i.e., we train until a given point and then we decide to continue doing it.
+- If we are saving *model checkpoints*.
+- *Hyperparameter tuning*: one run for eahc parameter set.
+- *Cross-validation*: one run for each fold.
+- *Feature engineering*: one run for each set of transformations.
+- ...
+
+Similarly, we can launch several experiments in a process; this makes sense when we are trying different models.
+
+In order to run several experiments/runs one after the other, we can just choose the names of each manually, nothing more needs to be done.
+
+```python
+# -- Experiment 1
+exp = mlflow.set_experiment(experiment_name="experiment_1")
+# Run 1
+mlflow.start_run(run_name="run_1.1")
+# ... do anthing
+mlflow.end_run()
+# Run 2
+mlflow.start_run(run_name="run_1.2")
+# ... do anything
+mlflow.end_run()
+
+# -- Experiment 2
+exp = mlflow.set_experiment(experiment_name="experiment_2")
+# Run 1
+mlflow.start_run(run_name="run_1.1")
+# ... do anthing
+mlflow.end_run()
+```
+
+Examples in [`03_multiple_runs/multiple_runs.py`](./examples/03_multiple_runs/multiple_runs.py).
+
+Note that if we launch several runs and experiments, it makes sense to launch them in parallel!
+
 ## 6. Autologging in MLflow
+
+MLflow allows automatically logging parameters and metrics, without the need to specifying them explicitly. We just need to place `mlflow.autolog()` just before the model definition and training; then, all the model parameters and metrics are logged.
+
+```python
+# Generic autolog: the model library is detected and its logs are carried out
+mlflow.autolog(log_models: boot = True, # log model or not
+               log_input_examples: bool = False, # log input examples or not
+               log_model_signatures: bool = True, # signatures: schema of inputs and outputs
+               log_datasets: bool = True,
+               disable: bool = False, # disable all automatic logging
+               exclusive: bool = False, # if True, autologged content not logged to user-created runs
+               disable_for_unsupported_versions: bool = False, # 
+               silent: bool = False) # supress all event logs and warnings
+
+# Library-specific, i.e., we explicitly specify the librar:
+# sklearn, keras, xgboost, pytorch, spark, gluon, statsmodels, ...
+# Same parameters as mlflow.autolog) + 5 additonal
+mlflow.<framework>.autolog(...,
+                           max_tuning_runs: int = 5, # max num of child MLflow runs for hyperparam search
+                           log_post_training_metrics: bool = True, # metrics depend on model type
+                           serialization_format: str = 'cloudpickle', # each library has its own set
+                           registered_model_name: Optional[str] = None, # to serialize the model
+                           pos_label: Optional[str] = None) # positive class in binary classification
+mlflow.sklearn.autolog(...)
+
+# Now we define and train the model
+# ...
+```
 
 ## 7. Tracking Server of MLflow
 

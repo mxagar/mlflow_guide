@@ -12,6 +12,8 @@ Table of contents:
     - [Experiments: Parameters](#experiments-parameters)
     - [Runs: Handling](#runs-handling)
     - [Logging: Parameters, Metrics, Artifacts and Tags](#logging-parameters-metrics-artifacts-and-tags)
+    - [Multiple Experiments and Runs](#multiple-experiments-and-runs)
+    - [Autologging](#autologging)
 
 ## Tracking: Basic Example
 
@@ -44,7 +46,7 @@ mlflow.set_tracking_uri("") # -> ./mlruns
 # Create experiment, if not existent, else set it
 exp = mlflow.set_experiment(experiment_name="experment_1")
 
-# Infer the model signature
+# Infer the model signature: model input & output schemas
 signature = infer_signature(train_x, lr.predict(train_x))
 
 # Log run in with context
@@ -72,9 +74,14 @@ predictions = loaded_model.predict(test_x)
 ## MLflow Server and UI
 
 ```bash
+conda activate mlflow
+
 # Serve web UI, call it from folder with ./mlruns in it
+# Go to the folder where the experiment/runs are, e.g., we should see the mlruns/ folder
+cd ...
 mlflow ui
 # Open http://127.0.0.1:5000 in browser
+# The experiments and runs saved in the local mlruns folder are loaded
 # Experiments tab: runs and their params + metrics
 # Models tab: model registry, if any
 
@@ -208,3 +215,64 @@ mlflow.set_tags(tags: Dict[str, Any]) # multiple -> No return
 mlflow.set_tags(tags={"version": "1.0", "environment": "dev"})
 ```
 
+### Multiple Experiments and Runs
+
+We can log multiple experiments and runs in the same file, we just need to control their name for that.
+Cases in which that is interesting:
+
+- *Incremental training*, i.e., we train until a given point and then we decide to continue doing it.
+- *Model checkpoints*.
+- *Hyperparameter tuning*: one run for eahc parameter set.
+- *Cross-validation*: one run for each fold.
+- *Feature engineering*: one run for each set of transformations.
+- We can launch several experiments in a process; this makes sense when we are trying different models.
+
+```python
+# -- Experiment 1
+exp = mlflow.set_experiment(experiment_name="experiment_1")
+# Run 1
+mlflow.start_run(run_name="run_1.1")
+# ... do anthing
+mlflow.end_run()
+# Run 2
+mlflow.start_run(run_name="run_1.2")
+# ... do anything
+mlflow.end_run()
+
+# -- Experiment 2
+exp = mlflow.set_experiment(experiment_name="experiment_2")
+# Run 1
+mlflow.start_run(run_name="run_1.1")
+# ... do anthing
+mlflow.end_run()
+```
+
+### Autologging
+
+MLflow allows automatically logging parameters and metrics, without the need to specifying them explicitly. We just need to place `mlflow.autolog()` just before the model definition and training; then, all the model parameters and metrics are logged.
+
+```python
+# Generic autolog: the model library is detected and its logs are carried out
+mlflow.autolog(log_models: boot = True, # log model or not
+               log_input_examples: bool = False, # log input examples or not
+               log_model_signatures: bool = True, # signatures: schema of inputs and outputs
+               log_datasets: bool = True,
+               disable: bool = False, # disable all automatic logging
+               exclusive: bool = False, # if True, autologged content not logged to user-created runs
+               disable_for_unsupported_versions: bool = False, # 
+               silent: bool = False) # supress all event logs and warnings
+
+# Library-specific, i.e., we explicitly specify the librar:
+# sklearn, keras, xgboost, pytorch, spark, gluon, statsmodels, ...
+# Same parameters as mlflow.autolog) + 5 additonal
+mlflow.<framework>.autolog(...,
+                           max_tuning_runs: int = 5, # max num of child MLflow runs for hyperparam search
+                           log_post_training_metrics: bool = True, # metrics depend on model type
+                           serialization_format: str = 'cloudpickle', # each library has its own set
+                           registered_model_name: Optional[str] = None, # to serialize the model
+                           pos_label: Optional[str] = None) # positive class in binary classification
+mlflow.sklearn.autolog(...)
+
+# Now we define and train the model
+# ...
+```
