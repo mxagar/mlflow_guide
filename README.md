@@ -34,6 +34,7 @@ In addition to the current repository, you might be interested in my notes on th
   - [8. MLflow Model Component](#8-mlflow-model-component)
     - [Storage Format: How the Models are Packages and Saved](#storage-format-how-the-models-are-packages-and-saved)
     - [Model Signatures](#model-signatures)
+    - [Model API](#model-api)
   - [9. Handling Customized Models in MLflow](#9-handling-customized-models-in-mlflow)
   - [10. MLflow Model Evaluation](#10-mlflow-model-evaluation)
   - [11. MLflow Registry Component](#11-mlflow-registry-component)
@@ -626,7 +627,7 @@ If we activate the autologging but would like to still log manually given things
 mlflow.autolog(log_models: boot = True, # log model or not
                log_input_examples: bool = False, # log input examples or not
                log_model_signatures: bool = True, # signatures: schema of inputs and outputs
-               log_datasets: bool = True,
+               log_datasets: bool = False,
                disable: bool = False, # disable all automatic logging
                exclusive: bool = False, # if True, autologged content not logged to user-created runs
                disable_for_unsupported_versions: bool = False, # 
@@ -739,12 +740,12 @@ The Model Component consists of
 If we save a model locally using `mlflow.log_model()`, we'll get a local folder in the run `artifacts` with the following files:
 
 ```bash
-conda.yaml
-input_example.json
-MLmodel
-model.pkl
-python_env.yaml
-requirements.txt
+conda.yaml            # conda environment
+input_example.json    # few rows of the dataset that serve as input example
+MLmodel               # YAML, most important file: model packagaing described and referenced here
+model.pkl             # serialized model binary
+python_env.yaml       # virtualenv 
+requirements.txt      # dependencies for virtualenv
 ```
 
 Those files ensure that the model environment and its environment are saved in a reproducible manner; we could set up a new environment with the same characteristics and start using the PKL.
@@ -758,7 +759,7 @@ The file `input_example.json` contains 2 rows of the input dataset:
 }
 ```
 
-`MLmodel` is the most important file and it describes the model for MLflow; really everything is defined or refrenced here, which enables to reproduce the model inference anywhere:
+`MLmodel` is the most important file and it describes the model for MLflow; really everything is defined or referenced here, which enables to reproduce the model inference anywhere:
 
 ```yaml
 artifact_path: wine_model
@@ -818,7 +819,7 @@ As shown in the files [`05_signatures/manual_signature.py`](./examples/05_signat
 
 ```python
 from mlflow.models.signature import ModelSignature, infer_signature
-from mlflow.types.schema import Schema,ColSpec
+from mlflow.types.schema import Schema, ColSpec
 
 ## -- Manually defined signatures (usually, not recommended)
 input_data = [
@@ -868,6 +869,44 @@ input_example = {
 }
 
 mlflow.sklearn.log_model(lr, "model", signature=signature, input_example=input_example)
+```
+
+### Model API
+
+These are the library calls to store standardized models or interact with them:
+
+```python
+# Model saved to a passed directory: only two flavors: sklearn and pyfunc
+mlflow.save_model(
+  sk_model, # model
+  path, 
+  conda_env, # path to a YAML or a dictionary
+  code_paths, # list of local filesystems paths, i.e. code files used to create the model,
+  mlflow_model, # flavor
+  serialization_format,
+  signature,
+  input_example,
+  pip_requirements, # path or list of requirements as strings; not necessary, these are inferred
+  extra_pip_requirements, # we can leave MLflow to infer and then add some explicitly
+  pyfunc_predict_fn, # name of the prediction function, e.g., 'predict_proba'
+  metadata
+)
+
+# Model logged to a local/remote server, which stores it as configured
+# The main difference is that the servers handles it in the model artifacts (locally or remotely)
+# whereas save_model always stores the model locally.
+# Same parameters as save_model, but some new/different ones
+mlflow.log_model(
+  artifact_path, # path for the artifact
+  registered_model_name, # register the model
+  await_registration_for
+)
+
+# Load both the logged/saved model
+mlflow.load_model(
+  model_uri, # the model URI: /path/to/model, s3://buckect/path/to/model, etc.
+  dst_path # path to download the model to
+)
 ```
 
 ## 9. Handling Customized Models in MLflow

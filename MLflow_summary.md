@@ -14,6 +14,9 @@ Table of contents:
     - [Logging: Parameters, Metrics, Artifacts and Tags](#logging-parameters-metrics-artifacts-and-tags)
     - [Multiple Experiments and Runs](#multiple-experiments-and-runs)
     - [Autologging](#autologging)
+  - [Model Component](#model-component)
+    - [Signatures and Input Example](#signatures-and-input-example)
+    - [API: Log, Save, Load](#api-log-save-load)
 
 ## Tracking: Basic Example
 
@@ -279,6 +282,8 @@ mlflow.end_run()
 
 MLflow allows automatically logging parameters and metrics, without the need to specifying them explicitly. We just need to place `mlflow.autolog()` just before the model definition and training; then, all the model parameters and metrics are logged.
 
+If we activate the autologging but would like to still log manually given things (e.g., models), we need to de-activate the autologging for those things in the `mlflow.autolog()` call.
+
 ```python
 # Generic autolog: the model library is detected and its logs are carried out
 mlflow.autolog(log_models: boot = True, # log model or not
@@ -304,3 +309,75 @@ mlflow.sklearn.autolog(...)
 # Now we define and train the model
 # ...
 ```
+
+## Model Component
+
+This component allows to save and serve models in a reproducible manner, i.e., not only the serialized model is stored, but also all the information related to its environment, methods used, traceability information, etc.
+
+If we save a model locally using `mlflow.log_model()`, we'll get a local folder in the run `artifacts` with the following files:
+
+```bash
+conda.yaml            # conda environment
+input_example.json    # few rows of the dataset that serve as input example
+MLmodel               # YAML, most important file: model packagaing described and referenced here
+model.pkl             # serialized model binary
+python_env.yaml       # virtualenv 
+requirements.txt      # dependencies for virtualenv
+```
+
+### Signatures and Input Example
+
+The model signature describes the data input and output types and names of the model, i.e., the schemas. These signatures can be enforced at different levels, similarly as with Pydantic. We can create signatures manually (not recommended) or infer them automatically (recommended).
+
+```python
+from mlflow.models.signature import infer_signature
+
+signature = infer_signature(X_test, predicted_qualities)
+
+input_example = {
+    "columns": np.array(X_test.columns),
+    "data": np.array(X_test.values)
+}
+
+mlflow.sklearn.log_model(lr, "model", signature=signature, input_example=input_example)
+```
+
+### API: Log, Save, Load
+
+These are the library calls to store standardized models or interact with them:
+
+```python
+# Model saved to a passed directory: only two flavors: sklearn and pyfunc
+mlflow.save_model(
+  sk_model, # model
+  path, 
+  conda_env, # path to a YAML or a dictionary
+  code_paths, # list of local filesystems paths, i.e. code files used to create the model,
+  mlflow_model, # flavor
+  serialization_format,
+  signature,
+  input_example,
+  pip_requirements, # path or list of requirements as strings; not necessary, these are inferred
+  extra_pip_requirements, # we can leave MLflow to infer and then add some explicitly
+  pyfunc_predict_fn, # name of the prediction function, e.g., 'predict_proba'
+  metadata
+)
+
+# Model logged to a local/remote server, which stores it as configured
+# The main difference is that the servers handles it in the model artifacts (locally or remotely)
+# whereas save_model always stores the model locally.
+# Same parameters as save_model, but some new/different ones
+mlflow.log_model(
+  artifact_path, # path for the artifact
+  registered_model_name, # register the model
+  await_registration_for
+)
+
+# Load both the logged/saved model
+mlflow.load_model(
+  model_uri, # the model URI: /path/to/model, s3://buckect/path/to/model, etc.
+  dst_path # path to download the model to
+)
+```
+
+
