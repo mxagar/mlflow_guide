@@ -32,6 +32,8 @@ In addition to the current repository, you might be interested in my notes on th
   - [6. Autologging in MLflow](#6-autologging-in-mlflow)
   - [7. Tracking Server of MLflow](#7-tracking-server-of-mlflow)
   - [8. MLflow Model Component](#8-mlflow-model-component)
+    - [Storage Format: How the Models are Packages and Saved](#storage-format-how-the-models-are-packages-and-saved)
+    - [Model Signatures](#model-signatures)
   - [9. Handling Customized Models in MLflow](#9-handling-customized-models-in-mlflow)
   - [10. MLflow Model Evaluation](#10-mlflow-model-evaluation)
   - [11. MLflow Registry Component](#11-mlflow-registry-component)
@@ -617,6 +619,8 @@ Note that if we launch several runs and experiments, it makes sense to launch th
 
 MLflow allows automatically logging parameters and metrics, without the need to specifying them explicitly. We just need to place `mlflow.autolog()` just before the model definition and training; then, all the model parameters and metrics are logged.
 
+If we activate the autologging but would like to still log manually given things (e.g., models), we need to de-activate the autologging for those things in the `mlflow.autolog()` call.
+
 ```python
 # Generic autolog: the model library is detected and its logs are carried out
 mlflow.autolog(log_models: boot = True, # log model or not
@@ -700,6 +704,171 @@ mlflow server --backend-store-uri postgresql://user:password@postgres:5432/mlflo
 ```
 
 ## 8. MLflow Model Component
+
+The MLflow Model Component allows to package models for deployment (similar to ONNX):
+
+- Standard formats are used, along with dependencies.
+- Reproducibility and reusability is enabled, by tracking lineage.
+- Flexibility is allowed, by enabling realtime/online and batch inference.
+
+Additionally, we have 
+
+- a central repository
+- and an API.
+
+The Model Component consists of
+
+- a **storage format**:
+  - how they are packages and saved
+  - all the contents in the package: metadata, version, hyperparameters, etc.
+  - format itself: a directory, a single file, a Docker image, etc.
+- a **signature**:
+  - input and output types and shapes
+  - used by the API
+- the **API**:
+  - REST standardized interface
+  - synch / asych
+  - online and batch inference
+  - usable in various environments
+- a [**flavor**](https://mlflow.org/docs/latest/models.html#built-in-model-flavors):
+  - the serialization and storing method
+  - each framework has its own methods
+
+### Storage Format: How the Models are Packages and Saved
+
+If we save a model locally using `mlflow.log_model()`, we'll get a local folder in the run `artifacts` with the following files:
+
+```bash
+conda.yaml
+input_example.json
+MLmodel
+model.pkl
+python_env.yaml
+requirements.txt
+```
+
+Those files ensure that the model environment and its environment are saved in a reproducible manner; we could set up a new environment with the same characteristics and start using the PKL.
+
+The file `input_example.json` contains 2 rows of the input dataset:
+
+```json
+{
+  "columns": ["Unnamed: 0", "fixed acidity", "volatile acidity", "citric acid", "residual sugar", "chlorides", "free sulfur dioxide", "total sulfur dioxide", "density", "pH", "sulphates", "alcohol"],
+  "data": [[1316, 5.4, 0.74, 0.0, 1.2, 0.041, 16.0, 46.0, 0.99258, 4.01, 0.59, 12.5], [1507, 7.5, 0.38, 0.57, 2.3, 0.106, 5.0, 12.0, 0.99605, 3.36, 0.55, 11.4]]
+}
+```
+
+`MLmodel` is the most important file and it describes the model for MLflow; really everything is defined or refrenced here, which enables to reproduce the model inference anywhere:
+
+```yaml
+artifact_path: wine_model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.10.13
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.4.1.post1
+mlflow_version: 2.10.2
+model_size_bytes: 1263
+model_uuid: 14a531b7b86a422bbcedf78e4c23821e
+run_id: 22e80d6e88a94973893abf8c862ae6ca
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  type: dataframe
+signature:
+  inputs: '[{"type": "long", "name": "Unnamed: 0", "required": true}, {"type": "double",
+    "name": "fixed acidity", "required": true}, {"type": "double", "name": "volatile
+    acidity", "required": true}, {"type": "double", "name": "citric acid", "required":
+    true}, {"type": "double", "name": "residual sugar", "required": true}, {"type":
+    "double", "name": "chlorides", "required": true}, {"type": "double", "name": "free
+    sulfur dioxide", "required": true}, {"type": "double", "name": "total sulfur dioxide",
+    "required": true}, {"type": "double", "name": "density", "required": true}, {"type":
+    "double", "name": "pH", "required": true}, {"type": "double", "name": "sulphates",
+    "required": true}, {"type": "double", "name": "alcohol", "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]'
+  params: null
+utc_time_created: '2024-02-27 17:14:24.719815'
+```
+
+### Model Signatures
+
+The model signature describes the data input and output types, i.e., the schema.
+
+The types can be many, as described in [`mlflow.types.DataType`](https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.DataType). Among them, we have also `tensors`; these often
+
+- appear when deep learning models are used,
+- have one shape dimension set to `-1`, representing the batch size, which can have arbitrary values.
+
+If the signature is saved, we can **enforce the signature**, which consists in validating the schema of the input data with the signature. This is somehow similar to using Pydantic. There are several levels of signature enforcement:
+
+- Signature enforcement: type and name
+- Name-ordering: only name order checked and fixed if necessary
+- Input-type: types are checked and casted if necessary
+
+As shown in the files [`05_signatures/manual_signature.py`](./examples/05_signatures/manual_signature.py) and [`05_signatures/infer_signature.py`](./examples/05_signatures/infer_signature.py), signatures can be defined manually or inferred automatically (preferred, recommended):
+
+```python
+from mlflow.models.signature import ModelSignature, infer_signature
+from mlflow.types.schema import Schema,ColSpec
+
+## -- Manually defined signatures (usually, not recommended)
+input_data = [
+    {"name": "fixed acidity", "type": "double"},
+    {"name": "volatile acidity", "type": "double"},
+    {"name": "citric acid", "type": "double"},
+    {"name": "residual sugar", "type": "double"},
+    {"name": "chlorides", "type": "double"},
+    {"name": "free sulfur dioxide", "type": "double"},
+    {"name": "total sulfur dioxide", "type": "double"},
+    {"name": "density", "type": "double"},
+    {"name": "pH", "type": "double"},
+    {"name": "sulphates", "type": "double"},
+    {"name": "alcohol", "type": "double"},
+    {"name": "quality", "type": "double"}
+]
+
+output_data = [{'type': 'long'}]
+
+input_schema = Schema([ColSpec(col["type"], col['name']) for col in input_data])
+output_schema = Schema([ColSpec(col['type']) for col in output_data])
+signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+input_example = {
+    "fixed acidity": np.array([7.2, 7.5, 7.0, 6.8, 6.9]),
+    "volatile acidity": np.array([0.35, 0.3, 0.28, 0.38, 0.25]),
+    "citric acid": np.array([0.45, 0.5, 0.55, 0.4, 0.42]),
+    "residual sugar": np.array([8.5, 9.0, 8.2, 7.8, 8.1]),
+    "chlorides": np.array([0.045, 0.04, 0.035, 0.05, 0.042]),
+    "free sulfur dioxide": np.array([30, 35, 40, 28, 32]),
+    "total sulfur dioxide": np.array([120, 125, 130, 115, 110]),
+    "density": np.array([0.997, 0.996, 0.995, 0.998, 0.994]),
+    "pH": np.array([3.2, 3.1, 3.0, 3.3, 3.2]),
+    "sulphates": np.array([0.65, 0.7, 0.68, 0.72, 0.62]),
+    "alcohol": np.array([9.2, 9.5, 9.0, 9.8, 9.4]),
+    "quality": np.array([6, 7, 6, 8, 7])
+}
+
+mlflow.sklearn.log_model(lr, "model", signature=signature, input_example=input_example)
+
+## -- Automatically infered signatures (preferred, recommended)
+signature = infer_signature(X_test, predicted_qualities)
+
+input_example = {
+    "columns": np.array(X_test.columns),
+    "data": np.array(X_test.values)
+}
+
+mlflow.sklearn.log_model(lr, "model", signature=signature, input_example=input_example)
+```
 
 ## 9. Handling Customized Models in MLflow
 
