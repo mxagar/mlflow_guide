@@ -39,6 +39,7 @@ In addition to the current repository, you might be interested in my notes on th
     - [Example: Custom Python Model - 06\_custom\_libraries](#example-custom-python-model---06_custom_libraries)
     - [Custom Flavors](#custom-flavors)
   - [10. MLflow Model Evaluation](#10-mlflow-model-evaluation)
+    - [Example: - 07\_evaluation](#example---07_evaluation)
   - [11. MLflow Registry Component](#11-mlflow-registry-component)
   - [12. MLflow Project Component](#12-mlflow-project-component)
   - [13. MLflow Client](#13-mlflow-client)
@@ -1049,6 +1050,45 @@ Necessary steps:
 In practice, custom `save_model` and `load_model` functions are implemented (amongst more other) following some standardized specifications.
 
 ## 10. MLflow Model Evaluation
+
+MLflow provides evaluation functinalities for MLflow packaged models, i.e., we don't need to evaluate the models using other tools. The advantage is that we get
+
+- performance metrics
+- plots
+- explanations (feature importance)
+  
+with few coding lines, and all those eveluation data are logged. Note: **it works with python_function (pyfunc) flavor**.
+
+Official documentation:
+
+- [Model Evaluation](https://mlflow.org/docs/latest/models.html#model-evaluation).
+- [`mlflow.evaluate()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate).
+
+The `mlflow.evaluate()` function has the following parameters:
+
+```python
+mlflow.evaluate(
+  model=None, # mlflow.pyfunc.PythonModel or model URI
+  data=None, # evaluation data: np.ndarray, pd.DataFrame, PySpark DF, mlflow.data.dataset.Dataset
+  model_type=None, # 'regressor', 'classifier', 'question-answering', 'text', 'text-summarization'
+  targets=None, # list of evaluation labels
+  dataset_path=None, # path where data is stored
+  feature_names=None, # np.ndarray, pd.DataFrame, PySpark DF
+  evaluators=None, # list of evaluator names; all used by default - get all with mlflow.models.list_evaluators()
+  evaluator_config=None, # config dict for evaluators: log_model_explainability, explainability_nsmaples, etc.
+  custom_metrics=None, # list custom defined EvaluationMetric objects
+  custom_artifacts=None, # list of custom artifact functions: dict->JSON, pd.DataFrame->CSV
+  validation_thresholds=None, # dictionary with custom thresholds for metrics
+  baseline_model=None, # baseline model to compare against
+  env_manager='local', # env manager to load models in isolated Python envs: 'local' (current env), 'virtualenv' (recommended), 'conda'
+  # More:
+  predictions=None, extra_metrics=None,  model_config=None, baseline_config=None, inference_params=None
+)
+```
+
+### Example: - 07_evaluation
+
+
 
 ## 11. MLflow Registry Component
 
