@@ -37,6 +37,7 @@ In addition to the current repository, you might be interested in my notes on th
     - [Model API](#model-api)
   - [9. Handling Customized Models in MLflow](#9-handling-customized-models-in-mlflow)
     - [Example: Custom Python Model - 06\_custom\_libraries](#example-custom-python-model---06_custom_libraries)
+    - [Custom Flavors](#custom-flavors)
   - [10. MLflow Model Evaluation](#10-mlflow-model-evaluation)
   - [11. MLflow Registry Component](#11-mlflow-registry-component)
   - [12. MLflow Project Component](#12-mlflow-project-component)
@@ -912,21 +913,35 @@ mlflow.load_model(
 
 ## 9. Handling Customized Models in MLflow
 
-Model customization and custom flavors adress the use-cases in which:
+Custom models and custom flavors adress the use-cases in which:
 
 - The ML library/framework is not supported by MLflow.
 - We need more than the library to use our model, i.e., we have a custom Python model (with our own algorithms and libraries).
 
+Note that:
+
+- Custom models refer to own model libraries.
+- Custom flavors refer to own model serialization methods.
+
 ### Example: Custom Python Model - 06_custom_libraries
 
-This section works on the example file [`06_custom_libraries/model_customization.py`](./examples/06_custom_libraries/model_customization.py).
+This section works on the example files [`06_custom_libraries/model_customization.py`](./examples/06_custom_libraries/model_customization.py) and [`06_custom_libraries/load_custom_model.py`](./examples/06_custom_libraries/load_custom_model.py).
 
 We assume that MLflow does not support Scikit-Learn, so we are going to create a Python model with it. Notes:
 
 - We cannot use `mlflow.sklearn.log_param/metric()` functions, but instead, `mlflow.log_param/metric()`.
 - We cannot use `mlflow.log_model()`, but instead `mlflow.pyfunc.log_model()`.
 
-The function 
+The way we create a custom python model is as follows:
+
+- We dump/store all artifacts locally: dataset splits, models, etc.
+- We save their paths in a dictionary called `artifacts`.
+- We derive and create our own model class, based on `mlflow.pyfunc.PythonModel`.
+- We create a dictionary which contains our conda environment.
+- We log the model passing the last 3 objects to `mlflow.pyfunc.log_model`.
+- Then, (usually in another file/run), we can load the saved model using `mlflow.pyfunc.load_model`.
+
+These are the key parts in [`06_custom_libraries/model_customization.py`](./examples/06_custom_libraries/model_customization.py) and [`06_custom_libraries/load_custom_model.py`](./examples/06_custom_libraries/load_custom_model.py):
 
 ```python
 # Data artifacts
@@ -983,6 +998,7 @@ conda_env = {
 }
 
 # Log model with all the structures defined above
+# We'll see all the artifacts in the UI: data, models, code, etc.
 mlflow.pyfunc.log_model(
     artifact_path="custom_mlflow_pyfunc", # the path directory which will contain the model
     python_model=ModelWrapper(), # a mlflow.pyfunc.PythonModel, defined above
@@ -990,10 +1006,47 @@ mlflow.pyfunc.log_model(
     code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
     conda_env=conda_env
 )
+
+# Usually, we would load the model in another file/session, not in the same run,
+# however, here we do it in the same run.
+# To load the model, we need to pass the model_uri, which can have many forms
+#   https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#mlflow.pyfunc.load_model
+# One option:
+#   runs:/<mlflow_run_id>/run-relative/path/to/model, e.g., runs:/98dgxxx/custom_mlflow_pyfunc
+# Usually, we'll get the run_id we want from the UI/DB, etc.; if it's the active run, we can fetch it
+active_run = mlflow.active_run()
+run_id = active_run.info.run_id
+loaded_model = mlflow.pyfunc.load_model(model_uri=f"runs:/{run_id}/{model_artifact_path}")
+
+# Predict
+predicted_qualities = loaded_model.predict(test_x)
+
+# Evaluate
+(rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 ```
+
+When we run the script and visualize the run in the UI, we can see the following artifacts:
 
 ![Artifacts of the Custom Model](./assets/mlflow_custom_model.jpg)
 
+More information: [MLflow: Creating custom Pyfunc models](https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models).
+
+### Custom Flavors
+
+Custom flavors adress the situation in which we want to have custom serialization methods.
+
+However, usually, that's an advanced topic which requires extending MLflow, and we are not going to need it very often.
+
+Official docutmentation with example implementation: [Custom Flavors](https://mlflow.org/docs/latest/models.html#custom-flavors).
+
+Necessary steps:
+
+- Serialization and deserialization logic need to be defined.
+- Create a flavor directory structure.
+- Register clustom flavor.
+- Define flavor-specific tools.
+
+In practice, custom `save_model` and `load_model` functions are implemented (amongst more other) following some standardized specifications.
 
 ## 10. MLflow Model Evaluation
 

@@ -17,6 +17,7 @@ Table of contents:
   - [Model Component](#model-component)
     - [Signatures and Input Example](#signatures-and-input-example)
     - [API: Log, Save, Load](#api-log-save-load)
+    - [Custom Libraries/Models](#custom-librariesmodels)
 
 ## Tracking: Basic Example
 
@@ -378,6 +379,99 @@ mlflow.load_model(
   model_uri, # the model URI: /path/to/model, s3://buckect/path/to/model, etc.
   dst_path # path to download the model to
 )
+```
+
+### Custom Libraries/Models
+
+We sometimes work with models based on libraries/framworks that are not supported by MLflow, e.g., when we have our own ML library. For those cases, we can log the model information using `mlflow.pyfunc.log_model()`.
+
+In the following example code, we assume that MLflow does not support Scikit-Learn, so we are going to create a Python model with it, then log it and load it. Notes:
+
+- We cannot use `mlflow.sklearn.log_param/metric()` functions, but instead, `mlflow.log_param/metric()`.
+- We cannot use `mlflow.log_model()`, but instead `mlflow.pyfunc.log_model()`.
+- Imports, `mlflow.start_run()`, `mlflow.end_run()`, etc. are ommitted, but the shown lines should be wrapped by them.
+- The complete example is in [`06_custom_libraries/load_custom_model.py`](./examples/06_custom_libraries/load_custom_model.py).
+
+```python
+# Data artifacts
+data = pd.read_csv("../data/red-wine-quality.csv")
+train, test = train_test_split(data)
+data_dir = 'data'
+Path(data_dir).mkdir(parents=True, exist_ok=True)
+data.to_csv(data_dir + '/dataset.csv')
+train.to_csv(data_dir + '/dataset_train.csv')
+test.to_csv(data_dir + '/dataset_test.csv')
+
+# Model artifact: we serialize the model with joblib
+model_dir = 'models'
+Path(model_dir).mkdir(parents=True, exist_ok=True)
+model_path = model_dir + "/model.pkl"
+joblib.dump(lr, model_path)
+
+# Artifacts' paths: model and data
+# This dictionary is fetsched later by the mlflow context
+artifacts = {
+    "model": model_path,
+    "data": data_dir
+}
+
+# We create a wrapper class, i.e.,
+# a custom mlflow.pyfunc.PythonModel
+#   https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModel
+# We need to define at least two functions:
+# - load_context
+# - predict
+# We can also define further custom functions if we want
+class ModelWrapper(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        self.model = joblib.load(context.artifacts["model"])
+
+    def predict(self, context, model_input):
+        return self.model.predict(model_input.values)
+
+# Conda environment
+conda_env = {
+    "channels": ["conda-forge"],
+    "dependencies": [
+        f"python={sys.version}", # Python version
+        "pip",
+        {
+            "pip": [
+                f"mlflow=={mlflow.__version__}",
+                f"scikit-learn=={sklearn.__version__}",
+                f"cloudpickle=={cloudpickle.__version__}",
+            ],
+        },
+    ],
+    "name": "my_env",
+}
+
+# Log model with all the structures defined above
+# We'll see all the artifacts in the UI: data, models, code, etc.
+mlflow.pyfunc.log_model(
+    artifact_path="custom_mlflow_pyfunc", # the path directory which will contain the model
+    python_model=ModelWrapper(), # a mlflow.pyfunc.PythonModel, defined above
+    artifacts=artifacts, # dictionary defined above
+    code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
+    conda_env=conda_env
+)
+
+# Usually, we would load the model in another file/session, not in the same run,
+# however, here we do it in the same run.
+# To load the model, we need to pass the model_uri, which can have many forms
+#   https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#mlflow.pyfunc.load_model
+# One option:
+#   runs:/<mlflow_run_id>/run-relative/path/to/model, e.g., runs:/98dgxxx/custom_mlflow_pyfunc
+# Usually, we'll get the run_id we want from the UI/DB, etc.; if it's the active run, we can fetch it
+active_run = mlflow.active_run()
+run_id = active_run.info.run_id
+loaded_model = mlflow.pyfunc.load_model(model_uri=f"runs:/{run_id}/{model_artifact_path}")
+
+# Predict
+predicted_qualities = loaded_model.predict(test_x)
+
+# Evaluate
+(rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 ```
 
 

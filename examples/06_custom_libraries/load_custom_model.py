@@ -15,8 +15,8 @@ Usage:
     python ./<filename.py>
 
 '''
-import sys
 import warnings
+import sys
 import argparse
 import logging
 import pandas as pd
@@ -29,7 +29,7 @@ import mlflow.sklearn
 from pathlib import Path
 import os
 from mlflow.models.signature import ModelSignature, infer_signature
-from mlflow.types.schema import Schema, ColSpec
+from mlflow.types.schema import Schema,ColSpec
 import sklearn
 import joblib
 import cloudpickle
@@ -55,6 +55,7 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     np.random.seed(40)
 
+    # Read the wine-quality csv file from the URL
     data = pd.read_csv("../data/red-wine-quality.csv")
     # Data artifacts
     train, test = train_test_split(data)
@@ -169,13 +170,34 @@ if __name__ == "__main__":
 
     # Log model with all the structures defined above
     # We'll see all the artifacts in the UI: data, models, code, etc.
+    model_artifact_path = "custom_mlflow_pyfunc"
     mlflow.pyfunc.log_model(
-        artifact_path="custom_mlflow_pyfunc", # the path directory which will contain the model
+        artifact_path=model_artifact_path, # the path directory which will contain the model
         python_model=ModelWrapper(), # a mlflow.pyfunc.PythonModel, defined above
         artifacts=artifacts, # dictionary defined above
         code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
         conda_env=conda_env
     )
+    
+    # Usually, we would load the model in another file/session, not in the same run,
+    # however, here we do it in the same run.
+    # To load the model, we need to pass the model_uri, which can have many forms
+    #   https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#mlflow.pyfunc.load_model
+    # One option:
+    #   runs:/<mlflow_run_id>/run-relative/path/to/model, e.g., runs:/98dgxxx/custom_mlflow_pyfunc
+    # Usually, we'll get the run_id we want from the UI/DB, etc.; if it's the active run, we can fetch it
+    active_run = mlflow.active_run()
+    run_id = active_run.info.run_id
+    loaded_model = mlflow.pyfunc.load_model(model_uri=f"runs:/{run_id}/{model_artifact_path}")
+    
+    # Predict
+    predicted_qualities = loaded_model.predict(test_x)
+
+    # Evaluate
+    (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+    print("  RMSE_test: %s" % rmse)
+    print("  MAE_test: %s" % mae)
+    print("  R2_test: %s" % r2)
 
     artifacts_uri=mlflow.get_artifact_uri()
     print("The artifact path is",artifacts_uri )
