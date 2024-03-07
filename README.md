@@ -28,14 +28,15 @@ In addition to the current repository, you might be interested in my notes on th
     - [Experiment: Creating and Setting - 02\_logging](#experiment-creating-and-setting---02_logging)
     - [Runs: Starting and Ending - 02\_logging](#runs-starting-and-ending---02_logging)
     - [Logging Parameters, Metrics, Artifacts and Tags](#logging-parameters-metrics-artifacts-and-tags)
-  - [5. Launch Multiple Experiments and Runs](#5-launch-multiple-experiments-and-runs)
-  - [6. Autologging in MLflow](#6-autologging-in-mlflow)
+  - [5. Launch Multiple Experiments and Runs - 03\_multiple\_runs](#5-launch-multiple-experiments-and-runs---03_multiple_runs)
+  - [6. Autologging in MLflow - 04\_autolog](#6-autologging-in-mlflow---04_autolog)
   - [7. Tracking Server of MLflow](#7-tracking-server-of-mlflow)
   - [8. MLflow Model Component](#8-mlflow-model-component)
     - [Storage Format: How the Models are Packages and Saved](#storage-format-how-the-models-are-packages-and-saved)
-    - [Model Signatures](#model-signatures)
+    - [Model Signatures - 05\_signatures](#model-signatures---05_signatures)
     - [Model API](#model-api)
   - [9. Handling Customized Models in MLflow](#9-handling-customized-models-in-mlflow)
+    - [Example: Custom Python Model - 06\_custom\_libraries](#example-custom-python-model---06_custom_libraries)
   - [10. MLflow Model Evaluation](#10-mlflow-model-evaluation)
   - [11. MLflow Registry Component](#11-mlflow-registry-component)
   - [12. MLflow Project Component](#12-mlflow-project-component)
@@ -577,7 +578,7 @@ mlflow.set_tags(tags: Dict[str, Any]) # multiple -> No return
 mlflow.set_tags(tags={"version": "1.0", "environment": "dev"})
 ```
 
-## 5. Launch Multiple Experiments and Runs
+## 5. Launch Multiple Experiments and Runs - 03_multiple_runs
 
 In some cases we want to do several runs in the same training session:
 
@@ -616,7 +617,7 @@ Examples in [`03_multiple_runs/multiple_runs.py`](./examples/03_multiple_runs/mu
 
 Note that if we launch several runs and experiments, it makes sense to launch them in parallel!
 
-## 6. Autologging in MLflow
+## 6. Autologging in MLflow - 04_autolog
 
 MLflow allows automatically logging parameters and metrics, without the need to specifying them explicitly. We just need to place `mlflow.autolog()` just before the model definition and training; then, all the model parameters and metrics are logged.
 
@@ -800,7 +801,7 @@ signature:
 utc_time_created: '2024-02-27 17:14:24.719815'
 ```
 
-### Model Signatures
+### Model Signatures - 05_signatures
 
 The model signature describes the data input and output types, i.e., the schema.
 
@@ -910,6 +911,89 @@ mlflow.load_model(
 ```
 
 ## 9. Handling Customized Models in MLflow
+
+Model customization and custom flavors adress the use-cases in which:
+
+- The ML library/framework is not supported by MLflow.
+- We need more than the library to use our model, i.e., we have a custom Python model (with our own algorithms and libraries).
+
+### Example: Custom Python Model - 06_custom_libraries
+
+This section works on the example file [`06_custom_libraries/model_customization.py`](./examples/06_custom_libraries/model_customization.py).
+
+We assume that MLflow does not support Scikit-Learn, so we are going to create a Python model with it. Notes:
+
+- We cannot use `mlflow.sklearn.log_param/metric()` functions, but instead, `mlflow.log_param/metric()`.
+- We cannot use `mlflow.log_model()`, but instead `mlflow.pyfunc.log_model()`.
+
+The function 
+
+```python
+# Data artifacts
+data = pd.read_csv("../data/red-wine-quality.csv")
+train, test = train_test_split(data)
+data_dir = 'data'
+Path(data_dir).mkdir(parents=True, exist_ok=True)
+data.to_csv(data_dir + '/dataset.csv')
+train.to_csv(data_dir + '/dataset_train.csv')
+test.to_csv(data_dir + '/dataset_test.csv')
+
+# Model artifact: we serialize the model with joblib
+model_dir = 'models'
+Path(model_dir).mkdir(parents=True, exist_ok=True)
+model_path = model_dir + "/model.pkl"
+joblib.dump(lr, model_path)
+
+# Artifacts' paths: model and data
+# This dictionary is fetsched later by the mlflow context
+artifacts = {
+    "model": model_path,
+    "data": data_dir
+}
+
+# We create a wrapper class, i.e.,
+# a custom mlflow.pyfunc.PythonModel
+#   https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModel
+# We need to define at least two functions:
+# - load_context
+# - predict
+# We can also define further custom functions if we want
+class ModelWrapper(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        self.model = joblib.load(context.artifacts["model"])
+
+    def predict(self, context, model_input):
+        return self.model.predict(model_input.values)
+
+# Conda environment
+conda_env = {
+    "channels": ["conda-forge"],
+    "dependencies": [
+        f"python={sys.version}", # Python version
+        "pip",
+        {
+            "pip": [
+                f"mlflow=={mlflow.__version__}",
+                f"scikit-learn=={sklearn.__version__}",
+                f"cloudpickle=={cloudpickle.__version__}",
+            ],
+        },
+    ],
+    "name": "my_env",
+}
+
+# Log model with all the structures defined above
+mlflow.pyfunc.log_model(
+    artifact_path="custom_mlflow_pyfunc", # the path directory which will contain the model
+    python_model=ModelWrapper(), # a mlflow.pyfunc.PythonModel, defined above
+    artifacts=artifacts, # dictionary defined above
+    code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
+    conda_env=conda_env
+)
+```
+
+![Artifacts of the Custom Model](./assets/mlflow_custom_model.jpg)
+
 
 ## 10. MLflow Model Evaluation
 
