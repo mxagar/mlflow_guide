@@ -6,6 +6,12 @@ Original code from the Udemy course
     https://www.udemy.com/course/mlflow-course/
 
     Author: J Garg, Real Time Learning
+
+Usage:
+
+    conda activate <env_name>
+    python ./<filename.py>
+
 '''
 import warnings
 import argparse

@@ -8,6 +8,12 @@ Original code from the Udemy course
     Author: J Garg, Real Time Learning
 
 Modified following https://mlflow.org/docs/latest/getting-started/intro-quickstart/index.html
+
+Usage:
+
+    conda activate <env_name>
+    python ./<filename.py>
+
 '''
 import warnings
 import argparse
