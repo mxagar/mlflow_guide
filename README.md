@@ -455,6 +455,8 @@ The file [`02_logging/experiment.py`](./examples/02_logging/experiment.py) is th
 ```python
 from pathlib import Path
 
+# ...
+
 # Create new experiment
 # - name: unique name
 # - artifact_location: location to store run artifacts, default: artifacts
@@ -530,6 +532,8 @@ We have several options to log parameters, metrics and artifacts, as shown below
 The file [`02_logging/artifact.py`](./examples/02_logging/artifact.py) is similar to [`01_tracking/basic_regression_mlflow.py`](./examples/01_tracking/basic_regression_mlflow.py); these are the 
 
 ```python
+# ...
+
 ## -- Parameters
 
 # Hyperparameters passed as key-value pairs
@@ -826,6 +830,8 @@ As shown in the files [`05_signatures/manual_signature.py`](./examples/05_signat
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.types.schema import Schema, ColSpec
 
+# ...
+
 ## -- Manually defined signatures (usually, not recommended)
 input_data = [
     {"name": "fixed acidity", "type": "double"},
@@ -947,6 +953,8 @@ The way we create a custom python model is as follows:
 These are the key parts in [`06_custom_libraries/model_customization.py`](./examples/06_custom_libraries/model_customization.py) and [`06_custom_libraries/load_custom_model.py`](./examples/06_custom_libraries/load_custom_model.py):
 
 ```python
+# ...
+
 # Data artifacts
 data = pd.read_csv("../data/red-wine-quality.csv")
 train, test = train_test_split(data)
@@ -1139,6 +1147,10 @@ As a result, we will get additional metrics in the DB or extra plots in the arti
 In the following, the most important lines from the example in [`07_evaluation/custom_metrics.py`](./examples/07_evaluation/custom_metrics.py):
 
 ```python
+from mlflow.models import make_metric
+
+# ...
+
 # Log model with all the structures defined above
 # We'll see all the artifacts in the UI: data, models, code, etc.
 model_artifact_path = "custom_mlflow_pyfunc"
@@ -1219,6 +1231,12 @@ As a result, we will get additional models and artifacts (baseline).
 In the following, the most important lines from the example in [`07_evaluation/validation_threshold.py`](./examples/07_evaluation/validation_threshold.py):
 
 ```python
+from mlflow.models import make_metric
+from sklearn.dummy import DummyRegressor
+from mlflow.models import MetricThreshold
+
+# ...
+
 # Model artifact: we serialize the model with joblib
 model_dir = 'models'
 Path(model_dir).mkdir(parents=True, exist_ok=True)
