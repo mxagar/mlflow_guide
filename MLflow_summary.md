@@ -18,6 +18,8 @@ Table of contents:
     - [Signatures and Input Example](#signatures-and-input-example)
     - [API: Log, Save, Load](#api-log-save-load)
     - [Custom Libraries/Models](#custom-librariesmodels)
+    - [(Simple) Evaluation](#simple-evaluation)
+    - [Evaluation with Custom Metrics, Artifacts and Baseline Model](#evaluation-with-custom-metrics-artifacts-and-baseline-model)
 
 ## Tracking: Basic Example
 
@@ -472,6 +474,187 @@ predicted_qualities = loaded_model.predict(test_x)
 
 # Evaluate
 (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+```
+
+### (Simple) Evaluation
+
+MLflow provides evaluation functinalities for MLflow packaged models (pyfunc flavor) via the call `mlflow.evaluate()`. We get evaluation metrics, plots and explanations (SHAP). Note: we need to manually `pip install shap`, if not done yet.
+
+sThe evaluation metrics and artifacts (e.g., plots) are saved along with other metrics and artifacts.
+
+```python
+# ...
+
+# Log model with all the structures defined above
+# We'll see all the artifacts in the UI: data, models, code, etc.
+model_artifact_path = "custom_mlflow_pyfunc"
+mlflow.pyfunc.log_model(
+    artifact_path=model_artifact_path, # the path directory which will contain the model
+    python_model=ModelWrapper(), # a mlflow.pyfunc.PythonModel, defined above
+    artifacts=artifacts, # dictionary defined above
+    code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
+    conda_env=conda_env
+)
+
+# Get model URI and evaluate
+# NOTE: the default evaluator uses shap -> we need to manually pip install shap
+model_artifact_uri = mlflow.get_artifact_uri(model_artifact_path)
+mlflow.evaluate(
+    model_artifact_uri, # model URI
+    test, # test split
+    targets="quality",
+    model_type="regressor",
+    evaluators=["default"] # if default, shap is used -> pip install shap
+)
+```
+
+### Evaluation with Custom Metrics, Artifacts and Baseline Model
+
+We can make more sophisticated evaluations by adding:
+
+- Custom evaluation metrics, defined by own functions.
+- Custom evaluation artifacts (e.g., plots), also defined by own functions.
+- Baseline models against which metrics are compared, after setting thresholds.
+
+A complete example is provided in [`07_evaluation/validation_threshold.py`](./examples/07_evaluation/validation_threshold.py). Here, the most important lines are summarized:
+
+```python
+from mlflow.models import make_metric
+from sklearn.dummy import DummyRegressor
+from mlflow.models import MetricThreshold
+
+# ...
+
+# Model artifact: we serialize the model with joblib
+model_dir = 'models'
+Path(model_dir).mkdir(parents=True, exist_ok=True)
+model_path = model_dir + "/model.pkl"
+joblib.dump(lr, model_path)
+
+# Artifacts' paths: model and data
+# This dictionary is fetsched later by the mlflow context
+artifacts = {
+    "model": model_path,
+    "data": data_dir
+}
+
+# Save baseline model and an artifacts dictionary
+baseline_model_path = model_dir + "/baseline_model.pkl"
+joblib.dump(baseline_model, baseline_model_path)
+baseline_artifacts = {
+    "baseline_model": baseline_model_path
+}
+
+# We create a wrapper class, i.e.,
+# a custom mlflow.pyfunc.PythonModel
+#   https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#mlflow.pyfunc.PythonModel
+# We need to define at least two functions:
+# - load_context
+# - predict
+# We can also define further custom functions if we want
+class ModelWrapper(mlflow.pyfunc.PythonModel):
+    def __init__(self, artifacts_name):
+        # We use the artifacts_name in order to handle both the baseline & the custom model
+        self.artifacts_name = artifacts_name
+
+    def load_context(self, context):
+        self.model = joblib.load(context.artifacts[self.artifacts_name])
+
+    def predict(self, context, model_input):
+        return self.model.predict(model_input.values)
+
+# Conda environment
+conda_env = {
+    "channels": ["conda-forge"],
+    "dependencies": [
+        f"python={sys.version}", # Python version
+        "pip",
+        {
+            "pip": [
+                f"mlflow=={mlflow.__version__}",
+                f"scikit-learn=={sklearn.__version__}",
+                f"cloudpickle=={cloudpickle.__version__}",
+            ],
+        },
+    ],
+    "name": "my_env",
+}
+
+# Log model with all the structures defined above
+# We'll see all the artifacts in the UI: data, models, code, etc.
+mlflow.pyfunc.log_model(
+    artifact_path="custom_mlflow_pyfunc", # the path directory which will contain the model
+    python_model=ModelWrapper("model"), # a mlflow.pyfunc.PythonModel, defined above
+    artifacts=artifacts, # dictionary defined above
+    code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
+    conda_env=conda_env
+)
+
+# Baseline model
+mlflow.pyfunc.log_model(
+    artifact_path="baseline_mlflow_pyfunc", # the path directory which will contain the model
+    python_model=ModelWrapper("baseline_model"), # a mlflow.pyfunc.PythonModel, defined above
+    artifacts=baseline_artifacts, # dictionary defined above
+    code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
+    conda_env=conda_env
+)
+
+def squared_diff_plus_one(eval_df, _builtin_metrics):
+    return np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2)
+
+def sum_on_target_divided_by_two(_eval_df, builtin_metrics):
+    return builtin_metrics["sum_on_target"] / 2
+
+squared_diff_plus_one_metric = make_metric(
+    eval_fn=squared_diff_plus_one,
+    greater_is_better=False,
+    name="squared diff plus one"
+)
+
+sum_on_target_divided_by_two_metric = make_metric(
+    eval_fn=sum_on_target_divided_by_two,
+    greater_is_better=True,
+    name="sum on target divided by two"
+)
+
+def prediction_target_scatter(eval_df, _builtin_metrics, artifacts_dir):
+    plt.scatter(eval_df["prediction"], eval_df["target"])
+    plt.xlabel("Targets")
+    plt.ylabel("Predictions")
+    plt.title("Targets vs. Predictions")
+    plot_path = os.path.join(artifacts_dir, "example_scatter_plot.png")
+    plt.savefig(plot_path)
+    return {"example_scatter_plot_artifact": plot_path}
+
+model_artifact_uri = mlflow.get_artifact_uri("custom_mlflow_pyfunc")
+
+# After training and logging both the baseline and the (custom) model
+# We define a thresholds dictionary which 
+thresholds = {
+    "mean_squared_error": MetricThreshold(
+        threshold=0.6,  # Maximum MSE threshold to accept the model, so we require MSE < 0.6
+        min_absolute_change=0.1,  # Minimum absolute improvement compared to baseline
+        min_relative_change=0.05,  # Minimum relative improvement compared to baseline
+        greater_is_better=False  # Lower MSE is better
+    )
+}
+
+baseline_model_artifact_uri = mlflow.get_artifact_uri("baseline_mlflow_pyfunc")
+
+mlflow.evaluate(
+    model_artifact_uri,
+    test,
+    targets="quality",
+    model_type="regressor",
+    evaluators=["default"],
+    custom_metrics=[
+        squared_diff_plus_one_metric,
+        sum_on_target_divided_by_two_metric
+    ],
+    custom_artifacts=[prediction_target_scatter],
+    validation_thresholds=thresholds,
+    baseline_model=baseline_model_artifact_uri
+)
 ```
 
 
