@@ -29,7 +29,7 @@ import mlflow.sklearn
 from pathlib import Path
 import os
 from mlflow.models.signature import ModelSignature, infer_signature
-from mlflow.types.schema import Schema,ColSpec
+from mlflow.types.schema import Schema, ColSpec
 import sklearn
 import joblib
 import cloudpickle
