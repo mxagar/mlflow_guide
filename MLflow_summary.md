@@ -30,6 +30,7 @@ import mlflow.sklearn
 from mlflow.models import infer_signature
 
 # ...
+
 # Fit model
 # It is recommended to fit and evaluate the model outside
 # of the `with` context in which the run is logged:
@@ -135,6 +136,8 @@ mlflow server --backend-store-uri postgresql://user:password@postgres:5432/mlflo
 ```python
 from pathlib import Path
 
+# ...
+
 # Create new experiment
 # - name: unique name
 # - artifact_location: location to store run artifacts, default: artifacts
@@ -197,6 +200,8 @@ print("Active run name is {}".format(run.info.run_name)) # traveling-tern-43
 ### Logging: Parameters, Metrics, Artifacts and Tags
 
 ```python
+# ...
+
 ## -- Parameters
 
 # Hyperparameters passed as key-value pairs
@@ -288,6 +293,8 @@ MLflow allows automatically logging parameters and metrics, without the need to 
 If we activate the autologging but would like to still log manually given things (e.g., models), we need to de-activate the autologging for those things in the `mlflow.autolog()` call.
 
 ```python
+# ...
+
 # Generic autolog: the model library is detected and its logs are carried out
 mlflow.autolog(log_models: boot = True, # log model or not
                log_input_examples: bool = False, # log input examples or not
@@ -350,6 +357,8 @@ mlflow.sklearn.log_model(lr, "model", signature=signature, input_example=input_e
 These are the library calls to store standardized models or interact with them:
 
 ```python
+# ...
+
 # Model saved to a passed directory: only two flavors: sklearn and pyfunc
 mlflow.save_model(
   sk_model, # model
@@ -395,6 +404,8 @@ In the following example code, we assume that MLflow does not support Scikit-Lea
 - The complete example is in [`06_custom_libraries/load_custom_model.py`](./examples/06_custom_libraries/load_custom_model.py).
 
 ```python
+# ...
+
 # Data artifacts
 data = pd.read_csv("../data/red-wine-quality.csv")
 train, test = train_test_split(data)
