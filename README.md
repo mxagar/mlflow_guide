@@ -39,7 +39,8 @@ In addition to the current repository, you might be interested in my notes on th
     - [Example: Custom Python Model - 06\_custom\_libraries](#example-custom-python-model---06_custom_libraries)
     - [Custom Flavors](#custom-flavors)
   - [10. MLflow Model Evaluation](#10-mlflow-model-evaluation)
-    - [Example: - 07\_evaluation](#example---07_evaluation)
+    - [Example: Evaluation of a Python Model - 07\_evaluation](#example-evaluation-of-a-python-model---07_evaluation)
+    - [Example: Custom Metrics and Artifacts - 07\_evaluation](#example-custom-metrics-and-artifacts---07_evaluation)
   - [11. MLflow Registry Component](#11-mlflow-registry-component)
   - [12. MLflow Project Component](#12-mlflow-project-component)
   - [13. MLflow Client](#13-mlflow-client)
@@ -1055,9 +1056,9 @@ MLflow provides evaluation functinalities for MLflow packaged models, i.e., we d
 
 - performance metrics
 - plots
-- explanations (feature importance)
+- explanations (feature importance, SHAP)
   
-with few coding lines, and all those eveluation data are logged. Note: **it works with python_function (pyfunc) flavor**.
+with few coding lines, and all those eveluation data are logged. Note: **it works with the python_function (pyfunc) flavor**.
 
 Official documentation:
 
@@ -1074,7 +1075,7 @@ mlflow.evaluate(
   targets=None, # list of evaluation labels
   dataset_path=None, # path where data is stored
   feature_names=None, # np.ndarray, pd.DataFrame, PySpark DF
-  evaluators=None, # list of evaluator names; all used by default - get all with mlflow.models.list_evaluators()
+  evaluators=None, # list of evaluator names, e.g., 'defaults'; all used by default - get all with mlflow.models.list_evaluators()
   evaluator_config=None, # config dict for evaluators: log_model_explainability, explainability_nsmaples, etc.
   custom_metrics=None, # list custom defined EvaluationMetric objects
   custom_artifacts=None, # list of custom artifact functions: dict->JSON, pd.DataFrame->CSV
@@ -1086,7 +1087,44 @@ mlflow.evaluate(
 )
 ```
 
-### Example: - 07_evaluation
+The `'default'` evaluator uses `shap` and we need to manually `pip install shap`. 
+
+### Example: Evaluation of a Python Model - 07_evaluation
+
+An evaluation example is given in [`07_evaluation/evaluate.py`](./examples/07_evaluation/evaluate.py); the `mlflow.evaluate()` call is summarized here:
+
+```python
+# ...
+
+# Log model with all the structures defined above
+# We'll see all the artifacts in the UI: data, models, code, etc.
+model_artifact_path = "custom_mlflow_pyfunc"
+mlflow.pyfunc.log_model(
+    artifact_path=model_artifact_path, # the path directory which will contain the model
+    python_model=ModelWrapper(), # a mlflow.pyfunc.PythonModel, defined above
+    artifacts=artifacts, # dictionary defined above
+    code_path=[str(__file__)], # Code file(s), must be in local dir: "model_customization.py"
+    conda_env=conda_env
+)
+
+# Get model URI and evaluate
+# NOTE: the default evaluator uses shap -> we need to manually pip install shap
+model_artifact_uri = mlflow.get_artifact_uri(model_artifact_path)
+mlflow.evaluate(
+    model_artifact_uri, # model URI
+    test, # test split
+    targets="quality",
+    model_type="regressor",
+    evaluators=["default"] # if default, shap is used -> pip install shap
+)
+```
+
+After running the evaluation, in the artifacts, we get the SHAP plots as well as the explainer model used.
+
+![SHAP Summary Plot](./assets/shap_summary_plot.png)
+
+
+### Example: Custom Metrics and Artifacts - 07_evaluation
 
 
 
