@@ -8,7 +8,7 @@ Table of contents:
 - [A Summary of the Most Important MLflow commands](#a-summary-of-the-most-important-mlflow-commands)
   - [Tracking: Basic Example](#tracking-basic-example)
   - [MLflow Server, UI and Storage](#mlflow-server-ui-and-storage)
-  - [Tracking: Logging](#tracking-logging)
+  - [Tracking or Logging Component](#tracking-or-logging-component)
     - [Experiments: Parameters](#experiments-parameters)
     - [Runs: Handling](#runs-handling)
     - [Logging: Parameters, Metrics, Artifacts and Tags](#logging-parameters-metrics-artifacts-and-tags)
@@ -20,6 +20,9 @@ Table of contents:
     - [Custom Libraries/Models](#custom-librariesmodels)
     - [(Simple) Evaluation](#simple-evaluation)
     - [Evaluation with Custom Metrics, Artifacts and Baseline Model](#evaluation-with-custom-metrics-artifacts-and-baseline-model)
+  - [Model Registry Component](#model-registry-component)
+  - [Project Component](#project-component)
+  - [CLI Commands](#cli-commands)
 
 ## Tracking: Basic Example
 
@@ -129,7 +132,7 @@ mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./
 mlflow server --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb --default-artifact-root s3://bucket_name --host remote_host --no-serve-artifacts
 ```
 
-## Tracking: Logging
+## Tracking or Logging Component
 
 ### Experiments: Parameters
 
@@ -386,8 +389,9 @@ mlflow.log_model(
 )
 
 # Load both the logged/saved model
+# If the model is registered (see model registry section), we can use the URI models:/<name>/<version>
 mlflow.load_model(
-  model_uri, # the model URI: /path/to/model, s3://buckect/path/to/model, etc.
+  model_uri, # the model URI: /path/to/model, s3://buckect/path/to/model, models:/<name>/<version>, etc.
   dst_path # path to download the model to
 )
 ```
@@ -667,5 +671,17 @@ mlflow.evaluate(
     baseline_model=baseline_model_artifact_uri
 )
 ```
+
+## Model Registry Component
+
+TBD.
+
+## Project Component
+
+TBD.
+
+## CLI Commands
+
+TBD.
 
 
