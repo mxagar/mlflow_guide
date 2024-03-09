@@ -1477,8 +1477,47 @@ ld = mlflow.pyfunc.load_model(model_uri="models:/elastic-api-2/1")
 predicted_qualities=ld.predict(test_x)
 ```
 
-
 ## 12. MLflow Project Component
+
+MLflow Projects is a component which allows to organize and share our code easily.
+
+I have another guide in [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md).
+
+MLflow Projects works with a `MLproject` YAML file placed in the project folder; this configuration file contains information about the entry point, parameters, dependencies, etc.
+
+```yaml
+name: "Elastice Regression project"
+conda_env: conda.yaml
+
+entry_points:
+  ElasticNet:
+    command: "python main.py --alpha={alpha} --l1_ratio={l1_ratio}"
+    parameters:
+      alpha:
+        type: float
+        default: 0.4
+
+      l1_ratio:
+        type: float
+        default: 0.4
+
+```
+
+[Specifying an environment](https://www.mlflow.org/docs/latest/projects.html?highlight=mlproject#mlproject-specify-environment) can be done in several ways:
+
+```yaml
+# Virtualenv (preferred by MLflow)
+python_env: files/config/python_env.yaml
+
+# Conda: conda env export --name <env_name> > conda.yaml
+conda_env: files/config/conda.yaml
+
+# Docker image
+docker_env:
+  image: mlflow-docker-example-environment:1.0 # or a generic one to be built: python:3.10
+  volumes: ["/local/path:/container/mount/path"]
+  environment: [["NEW_ENV_VAR", "new_var_value"], "VAR_TO_COPY_FROM_HOST_ENVIRONMENT"]
+```
 
 ## 13. MLflow Client
 
