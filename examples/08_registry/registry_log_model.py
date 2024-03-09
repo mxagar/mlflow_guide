@@ -117,6 +117,7 @@ if __name__ == "__main__":
     run = mlflow.last_active_run()
 
     # The first time, a version 1 is going to be created, then 2, etc.
+    # We could in theory log a model which has been trained outside from a run
     mlflow.sklearn.log_model(lr, "model", registered_model_name='elastcinet-api')
 
     mlflow.end_run()
