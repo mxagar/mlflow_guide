@@ -1,0 +1,14 @@
+name: "Elastice Regression project"
+conda_env: conda.yaml # other options: python_env (virtualenv), docker image
+
+entry_points:
+  ElasticNet:
+    command: "python main.py --alpha={alpha} --l1_ratio={l1_ratio}"
+    parameters:
+      alpha:
+        type: float
+        default: 0.4
+
+      l1_ratio:
+        type: float
+        default: 0.4
