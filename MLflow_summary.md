@@ -751,7 +751,6 @@ ld = mlflow.pyfunc.load_model(model_uri="models:/elastic-api-2/1")
 predicted_qualities=ld.predict(test_x)
 ```
 
-
 ## Project Component
 
 TBD.
@@ -759,5 +758,4 @@ TBD.
 ## CLI Commands
 
 TBD.
-
 
