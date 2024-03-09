@@ -1428,6 +1428,7 @@ mlflow.set_tracking_uri(uri="http://127.0.0.1:5000/")
 # ...
 
 # The first time, a version 1 is going to be created, then 2, etc.
+# We could in theory log a model which has been trained outside from a run
 mlflow.sklearn.log_model(
   model,
   "model",

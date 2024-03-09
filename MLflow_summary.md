@@ -21,6 +21,7 @@ Table of contents:
     - [(Simple) Evaluation](#simple-evaluation)
     - [Evaluation with Custom Metrics, Artifacts and Baseline Model](#evaluation-with-custom-metrics-artifacts-and-baseline-model)
   - [Model Registry Component](#model-registry-component)
+    - [API Calls](#api-calls)
   - [Project Component](#project-component)
   - [CLI Commands](#cli-commands)
 
@@ -674,7 +675,82 @@ mlflow.evaluate(
 
 ## Model Registry Component
 
-TBD.
+A model registry is a central database where model versions are stored along with their metadata; additionally, we have a UI and APIs to the registry. The model artifacts stay where they are after logged; only the reference to it is stored, along with the metadata. The registered models can be see in the **Models** menu (horizontal menu).
+
+Pre-requisites:
+
+- Start a server `mlflow server ...` and then `mlflow.set_tracking_uri()` in the code. In my tests, if I start the UI with `mlflow ui` it also works by using `uri="http://127.0.0.1:5000/"`; however, note that depending on where/how we start the server, the `mlruns` folder is placed in different locations...
+- Log the model.
+
+We have several options to register a model:
+
+- After we have logged the model, in the UI: Select experiment, Artifacts, Select model, Click on **Register** (right): New model, write name; the first time we need to write a model name. The next times, if the same model, we choose its name, else we insert a new name. If we register a new model with the same name, its version will be changed.
+- In the `log_model()`, if we pass the parameter `registered_model_name`.
+- By calling `register_model()`.
+
+In the **Models** menu (horizontal menu), we all the regstered model versions:
+
+- We can/should add descriptions.
+- We should add tags: which are production ready? was a specific data slice used?
+- We can can tags and descriptions at model and version levels: that's important!
+
+We can use:
+
+- Tags: we can manually tag model versions to be `staging, production, archive`.
+- Aliases: named references for particular model versions; for example, setting a **champion** alias on a model version enables you to fetch the model version by that alias via the `get_model_version_by_alias()` client API or the model URI `models:/<registered model name>@champion`.
+
+### API Calls
+
+Via `mlflow.sklearn.log_model`:
+
+```python
+# ...
+
+# Connect to the tracking server
+# Make sure a server is started with the given URI: mlflow server ...
+mlflow.set_tracking_uri(uri="http://127.0.0.1:5000/")
+
+# ...
+
+# The first time, a version 1 is going to be created, then 2, etc.
+# We could in theory log a model which has been trained outside from a run
+mlflow.sklearn.log_model(
+  model,
+  "model",
+  registered_model_name='elastcinet-api'
+)
+```
+
+Via `mlflow.sklearn.register_model`:
+
+```python
+# ...
+
+# Connect to the tracking server
+# Make sure a server is started with the given URI: mlflow server ...
+mlflow.set_tracking_uri(uri="http://127.0.0.1:5000/")
+
+# ...
+
+# We still need to log themodel, but wince we use register_model
+# here no registered_model_name is passed!
+mlflow.sklearn.log_model(lr, "model")
+
+# The model_uri can be a path or a URI, e.g., runs:/...
+# but no models:/ URIs are accepted currently
+# As with registered_model_name, the version is automatically increased
+mlflow.register_model(
+    model_uri=f'runs:/{run.info.run_id}/model',
+    name='elastic-api-2',
+    tags={'stage': 'staging', 'preprocessing': 'v3'}
+)
+
+# We can load the registered model
+# by using an URI like models:/<model_name>/<version>
+ld = mlflow.pyfunc.load_model(model_uri="models:/elastic-api-2/1")
+predicted_qualities=ld.predict(test_x)
+```
+
 
 ## Project Component
 
