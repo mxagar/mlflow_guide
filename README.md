@@ -8,7 +8,7 @@ I also followed the official MLflow tutorials as well as other resources; in any
 
 In addition to the current repository, you might be interested in my notes on the Udacity ML DevOps Nanodegree, which briefly introduces MLflow, [mlops_udacity](https://github.com/mxagar/mlops_udacity):
 
-- [Reproducible Model Workflows](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md)
+- [Reproducible Model Workflows](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md). While the current guide focuses on tracking and model handling, the Udacity notes focus more on how the project pipelines can be built using MLflow.
 - [Deploying a Scalable ML Pipeline in Production](https://github.com/mxagar/mlops_udacity/blob/main/03_Deployment/MLOpsND_Deployment.md)
 
 ## Overview
@@ -1631,6 +1631,9 @@ cd ...
 # Since the only entry point is main, we don't need to specify it (because main is the default)
 # We could try further options, e.g., --experiment-name
 mlflow run -P alpha=0.3 -P l1_ratio=0.3 .
+# The environment will be installed
+# The script from the main entrypoint will be run
+# Advantage wrt. simply running the script: we can run remote scripts
 ```
 
 The main difference is that now we create a specific environment only for running the project/package/module. Additionally, we could run remote modules.
@@ -1668,7 +1671,7 @@ python run.py
 
 ### More Advanced Project Setups
 
-Visit my notes: [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md).
+Visit my notes: [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md). While the current guide focuses on tracking and model handling, the Udacity notes focus more on how the project pipelines can be built using MLflow.
 
 
 ## 13. MLflow Client

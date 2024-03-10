@@ -23,6 +23,8 @@ Table of contents:
   - [Model Registry Component](#model-registry-component)
     - [API Calls](#api-calls)
   - [Project Component](#project-component)
+    - [Running Projects via CLI](#running-projects-via-cli)
+    - [Running Projects via the Python API](#running-projects-via-the-python-api)
   - [CLI Commands](#cli-commands)
 
 ## Tracking: Basic Example
@@ -753,7 +755,88 @@ predicted_qualities=ld.predict(test_x)
 
 ## Project Component
 
-TBD.
+A more extensive overview on the Project Component is given in these other notes of mine: [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md). While the current guide focuses on tracking and model handling, the Udacity notes focus more on how the project pipelines can be built using MLflow.
+
+MLflow Projects works with a `MLproject` YAML file placed in the project folder; this configuration file contains information about
+
+- the name of the package/project module,
+- the environment with the dependencies,
+- and the entry points, with their parameters.
+
+```yaml
+name: "Elastice Regression project"
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    command: "python main.py --alpha={alpha} --l1_ratio={l1_ratio}"
+    parameters:
+      alpha:
+        type: float
+        default: 0.4
+
+      l1_ratio:
+        type: float
+        default: 0.4
+
+```
+
+An `MLproject` can contain several **entry points**, which are basically points from which the execution of the package starts. Entry points have:
+
+- A name; if one, entry point, usually it's called main.
+- One command, which contains placeholders replaced by the parameter values. The command is the execution call of a script, which should usually parse arguments, i.e., parameter values.
+- The parameters replaced in the commad; they consist of a name, a default value and a type (4 possible: string, float, path, URI); types are validated.
+- An optional environment (e.g., conda), specific for the entry point command execution.
+
+We can run the project entry points in two ways:
+
+- Via CLI: `mlflow run [OPTIONS] URI`
+  - `URI` can be a local path (e.g., `.`) or a URI to a remote machine, a git repository, etc.
+  - The `OPTIONS` depend on how we run the project (locally, remotely, etc.); see list below.
+- Or within a python module/code: `mlflow.projects.run()`
+
+### Running Projects via CLI
+
+```bash
+cd ... # we go to the folder where MLproject is
+# Since the only entry point is main, we don't need to specify it (because main is the default)
+# We could try further options, e.g., --experiment-name, etc. See README for more.
+mlflow run -P alpha=0.3 -P l1_ratio=0.3 .
+# The environment will be installed
+# The script from the main entrypoint will be run
+# Advantage wrt. simply running the script: we can run remote scripts
+```
+
+### Running Projects via the Python API
+
+The file [`09_projects/run.py`](./examples/09_projects/run.py) shows how to execute the `mlflow run` froma Python script:
+
+```python
+import mlflow
+
+parameters={
+    "alpha":0.3,
+    "l1_ratio":0.3
+}
+
+experiment_name = "Project exp 1"
+entry_point = "main"
+
+mlflow.projects.run(
+    uri=".",
+    entry_point=entry_point,
+    parameters=parameters,
+    experiment_name=experiment_name
+)
+```
+
+To use it:
+
+```bash
+conda activate mlflow
+cd ...
+python run.py
+```
 
 ## CLI Commands
 
