@@ -12,7 +12,7 @@ Modified following https://mlflow.org/docs/latest/getting-started/intro-quicksta
 Usage:
 
     conda activate <env_name>
-    python ./<filename.py>
+    python ./<filename.py> [--alpha 0.3] [--l1_ratio 0.3]
 
 '''
 import os

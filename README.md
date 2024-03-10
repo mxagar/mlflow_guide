@@ -46,6 +46,10 @@ In addition to the current repository, you might be interested in my notes on th
     - [Registering via UI](#registering-via-ui)
     - [Registering via API - 08\_registry](#registering-via-api---08_registry)
   - [12. MLflow Project Component](#12-mlflow-project-component)
+    - [CLI Options and Environment Variables](#cli-options-and-environment-variables)
+    - [Example: Running a Project with the CLI - 09\_projects](#example-running-a-project-with-the-cli---09_projects)
+    - [Example: Running a Project with the Python API - 09\_projects](#example-running-a-project-with-the-python-api---09_projects)
+    - [More Advanced Project Setups](#more-advanced-project-setups)
   - [13. MLflow Client](#13-mlflow-client)
   - [14. MLflow CLI Commands](#14-mlflow-cli-commands)
   - [15. AWS Integration with MLflow](#15-aws-integration-with-mlflow)
@@ -1481,16 +1485,25 @@ predicted_qualities=ld.predict(test_x)
 
 MLflow Projects is a component which allows to organize and share our code easily.
 
-I have another guide in [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md).
+Interesting links:
 
-MLflow Projects works with a `MLproject` YAML file placed in the project folder; this configuration file contains information about the entry point, parameters, dependencies, etc.
+- I have another guide in [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md).
+- [The official guide](https://www.mlflow.org/docs/latest/projects.html).
+
+MLflow Projects works with a `MLproject` YAML file placed in the project folder; this configuration file contains information about
+
+- the name of the package/project module,
+- the environment with the dependencies,
+- and the entry points, with their parameters.
+
+Here is an example:
 
 ```yaml
 name: "Elastice Regression project"
 conda_env: conda.yaml
 
 entry_points:
-  ElasticNet:
+  main:
     command: "python main.py --alpha={alpha} --l1_ratio={l1_ratio}"
     parameters:
       alpha:
@@ -1503,7 +1516,14 @@ entry_points:
 
 ```
 
-[Specifying an environment](https://www.mlflow.org/docs/latest/projects.html?highlight=mlproject#mlproject-specify-environment) can be done in several ways:
+We can **run the project/package in the CLI** as follows:
+
+```bash
+cd ... # we go to the folder where MLproject is
+mlflow run -P alpha=0.3 -P l1_ratio=0.3 .
+```
+
+The [**environment can be specified**](https://www.mlflow.org/docs/latest/projects.html?highlight=mlproject#mlproject-specify-environment) in several ways:
 
 ```yaml
 # Virtualenv (preferred by MLflow)
@@ -1512,12 +1532,144 @@ python_env: files/config/python_env.yaml
 # Conda: conda env export --name <env_name> > conda.yaml
 conda_env: files/config/conda.yaml
 
-# Docker image
+# Docker image: we can use a prebuilt image
+# or build one with --build-image
+# Environment variables like MLFLOW_TRACKING_URI are propagated (-e)
+# and the host tracking folder is mounted as a volume (-v)
+# We can also set volumes and env variables (copied or defined)
 docker_env:
-  image: mlflow-docker-example-environment:1.0 # or a generic one to be built: python:3.10
+  image: mlflow-docker-example-environment:1.0 # pre-built
+  # image: python:3.10 # to build with `mlflow run ... --build-image`
+  # image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0 # fetch from registry
   volumes: ["/local/path:/container/mount/path"]
   environment: [["NEW_ENV_VAR", "new_var_value"], "VAR_TO_COPY_FROM_HOST_ENVIRONMENT"]
 ```
+
+An `MLproject` can contain several **entry points**, which are basically points from which the execution of the package starts. Entry points have:
+
+- A name; if one, entry point, usually it's called main.
+- One command, which contains placeholders replaced by the parameter values. The command is the execution call of a script, which should usually parse arguments, i.e., parameter values.
+- The parameters replaced in the commad; they consist of a name, a default value and a type (4 possible: string, float, path, URI); types are validated.
+- An optional environment (e.g., conda), specific for the entry point command execution.
+
+We can run the project entry points in two ways:
+
+- Via CLI: `mlflow run [OPTIONS] URI`
+  - `URI` can be a local path (e.g., `.`) or a URI to a remote machine, a git repository, etc.
+  - The `OPTIONS` depend on how we run the project (locally, remotely, etc.); see list below.
+- Or within a python module/code: `mlflow.projects.run()`
+
+### CLI Options and Environment Variables
+
+Some `OPTIONS`:
+
+```bash
+# mlflow run -e <my_entry_point> <uri>
+-e, --entry-point <NAME>
+
+# mlflow run -v <absc123> <uri>
+-v, --version <VERSION>
+
+# mlflow run -P <param1=value1> -P <param2=value2> <uri>
+-P, --param-list <NAME=VALUE>
+
+# mlflow run -A <param1=value1> <uri>
+-A, --docker-args <NAME=VALUE>
+
+# Specific experiement name
+--experiment-name <NAME>
+
+# Specific experiment ID
+--experiment-id <ID>
+
+# Specify backend: local, databricks, kubernetes
+-b, --backend <NAME>
+
+# Backend config file
+-c, --backend-config <FILE>
+
+# Specific environment manager: local, virtualenv, conda
+--env-manager <NAME>
+
+# Only valid for local backend
+--storage-dir <DIR>
+
+# Specify run ID
+--run-id <ID>
+
+# Specify run name
+--run-name <NAME>
+
+# Build a new docker image
+--build-image
+```
+
+In addition to the options, we also have important environment variables which can be set; if set, their values are used acordingly by default:
+
+```bash
+MLFLOW_TRACKING_URI
+MLFLOW_EXPERIMENT_NAME
+MLFLOW_EXPERIMENT_ID
+MLFLOW_TMP_DIR # --storage-dir = storage folder for local backend
+```
+
+### Example: Running a Project with the CLI - 09_projects
+
+The file [`09_projects/main.py`](./examples/09_projects/main.py) can be run without the `MLproject` tool as follows:
+
+```bash
+conda activate mlflow
+cd ...
+python ./main.py --alpha 0.3 --l1_ratio 0.3
+```
+
+However, we can use the co-located [`09_projects/MLproject`](./examples/09_projects/MLproject) and run it using `mlflow`:
+
+```bash
+conda activate mlflow
+cd ...
+# Since the only entry point is main, we don't need to specify it (because main is the default)
+# We could try further options, e.g., --experiment-name
+mlflow run -P alpha=0.3 -P l1_ratio=0.3 .
+```
+
+The main difference is that now we create a specific environment only for running the project/package/module. Additionally, we could run remote modules.
+
+### Example: Running a Project with the Python API - 09_projects
+
+The file [`09_projects/run.py`](./examples/09_projects/run.py) shows how to execute the `mlflow run` froma Python script:
+
+```python
+import mlflow
+
+parameters={
+    "alpha":0.3,
+    "l1_ratio":0.3
+}
+
+experiment_name = "Project exp 1"
+entry_point = "main"
+
+mlflow.projects.run(
+    uri=".",
+    entry_point=entry_point,
+    parameters=parameters,
+    experiment_name=experiment_name
+)
+```
+
+To use it:
+
+```bash
+conda activate mlflow
+cd ...
+python run.py
+```
+
+### More Advanced Project Setups
+
+Visit my notes: [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md).
+
 
 ## 13. MLflow Client
 
