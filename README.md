@@ -1947,44 +1947,80 @@ client.delete_model_version(
 )
 ```
 
-
 ## 14. MLflow CLI Commands
 
+MLflow has an extensive set of [CLI tools](https://mlflow.org/docs/latest/cli.html).
+
+First, we need to start a server.
+
 ```bash
+conda activate mlflow
+cd ...
+mlflow server
+```
+
+Then, in another terminal, we can use the [MLflow CLI](https://mlflow.org/docs/latest/cli.html):
+
+```bash
+conda activate mlflow
+cd ...
+# We might need to set the environment variable
+# MLFLOW_TRACKING_URI="http://127.0.0.1:5000"
+
+# Check configuration to see everything is correctly set up
+# We get: Python & MLflow version, URIs, etc.
 mlflow doctor
 
+# Use --mask-envs to avoid showing env variable values, in case we have secrets
 mlflow doctor --mask-envs
 
-mlflow artifacts list --run-id b18697e8c62945e6adbdef5cb1af6c21
+# List artifacts
+# We can also use the artifact path instead of the run_id
+mlflow artifacts list --run-id <run_id>
+mlflow artifacts list --run-id 58be5cac691f44f98638f03550ac2743
 
-mlflow artifacts download --run-id b18697e8c62945e6adbdef5cb1af6c21 --dst-path cli_artifact
+# Download artifacts
+# --dst-path: local path to which the artifacts are downloaded (created if inexistent)
+mlflow artifacts download --run-id <run_id> --dst-path cli_artifact
+mlflow artifacts download --run-id 58be5cac691f44f98638f03550ac2743 --dst-path cli_artifact
 
-mlflow artifacts log-artifacts --local-dir cli_artifact --run-id b18697e8c62945e6adbdef5cb1af6c21 --artifact-path cli_artifact
+# Upload/log artifacts
+# --local-dir: local path where the artifact is
+# --artifact-path: the path of the artifact in the mlflow data system
+mlflow artifacts log-artifacts --local-dir cli_artifact --run-id <run_id> --artifact-path cli_artifact
 
+# Upgrade the schema of an MLflow tracking database to the latest supported version
 mlflow db upgrade sqlite:///mlflow.db
 
-mlflow experiments create --experiment-name cli_experiment
+# Download to a local CSV all the runs (+ info) of an experiment
+mlflow experiments csv --experiment-id <experiment_id> --filename experiments.csv
+mlflow experiments csv --experiment-id 932303397918318318 --filename experiments.csv
 
-mlflow experiments rename --experiment-id 26 --new-name test1
+# Create experiment; id is returned
+mlflow experiments create --experiment-name cli_experiment # experiment_id: 794776876267367931
 
-mlflow experiments delete --experiment-id 26
+mlflow experiments rename --experiment-id <experiment_id> --new-name test1
 
-mlflow experiments restore --experiment-id 26
+mlflow experiments delete --experiment-id <experiment_id>
+
+mlflow experiments restore --experiment-id <experiment_id>
 
 mlflow experiments search --view "all" 
 
-mlflow experiments csv --experiment-id 6 --filename test.csv
+mlflow experiments csv --experiment-id <experiment_id> --filename test.csv
 
-mlflow runs list --experiment-id 6 --view "all"
+# List the runs of an experiment
+mlflow runs list --experiment-id <experiment_id> --view "all"
+mlflow runs list --experiment-id 932303397918318318 --view "all"
 
-mlflow runs describe --run-id 97e72d1a3a074e97a4a59b95625cca64
+# Detailed information of a run: JSON with all the information returned
+mlflow runs describe --run-id <run_id>
+mlflow runs describe --run-id 58be5cac691f44f98638f03550ac2743
 
 mlflow runs delete --run-id 
 
 mlflow runs restore --run-id 
 ```
-
-[MLflow Tracking database migrations](https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/README.md)
 
 ## 15. AWS Integration with MLflow
 
