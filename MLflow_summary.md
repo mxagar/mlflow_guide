@@ -25,6 +25,7 @@ Table of contents:
   - [Project Component](#project-component)
     - [Running Projects via CLI](#running-projects-via-cli)
     - [Running Projects via the Python API](#running-projects-via-the-python-api)
+  - [MLflow Client](#mlflow-client)
   - [CLI Commands](#cli-commands)
 
 ## Tracking: Basic Example
@@ -755,7 +756,7 @@ predicted_qualities=ld.predict(test_x)
 
 ## Project Component
 
-A more extensive overview on the Project Component is given in these other notes of mine: [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md). While the current guide focuses on tracking and model handling, the Udacity notes focus more on how the project pipelines can be built using MLflow.
+A more extensive overview on the Project Component is given in these other notes of mine: [MLops Udacity - Reproducible Pipelines](https://github.com/mxagar/mlops_udacity/blob/main/02_Reproducible_Pipelines/MLOpsND_ReproduciblePipelines.md). While the current guide focuses on tracking and model handling, the Udacity notes focus more on how the project pipelines can be built using MLflow. Among others, sophisticated pipelines can be defined so that several components/modules are run one after the other, each storing artifacts used by the one that come later.
 
 MLflow Projects works with a `MLproject` YAML file placed in the project folder; this configuration file contains information about
 
@@ -837,6 +838,24 @@ conda activate mlflow
 cd ...
 python run.py
 ```
+
+## MLflow Client
+
+MLflow provides a class [`MlflowClient`](https://www.mlflow.org/docs/latest/python_api/mlflow.client.html?highlight=client#module-mlflow.client), which facilitates makes possible to programmatically interact with its objects in a unified form. 
+
+- Experiment management
+- Run management and tracking
+- Model versioning and management
+
+However, `MlflowClient` does not replace the MLflow library, but it provides extra functionalities to handle the tracking server object. **It provides some of the functionalities of the UI, but via code**.
+
+The file [`10_client/client_management.py`](./examples/10_client/client_management.py) shows the most important calls to manage MLflow objects via the Python API using `mlflow.client.MlflowClient`:
+
+- Experiments: creating, adding tags, renaming, getting and searching experiments, deleting, restoring.
+- Runs: creating, renaming, settng status getting and searching runs, deleting, restoring.
+- Logging/extracting parameters, metrics and artifacts via the client.
+- Creating and registering model versions, setting tags, searching and getting models, deleting.
+
 
 ## CLI Commands
 
