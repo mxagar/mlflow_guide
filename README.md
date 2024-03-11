@@ -53,6 +53,7 @@ In addition to the current repository, you might be interested in my notes on th
   - [13. MLflow Client](#13-mlflow-client)
   - [14. MLflow CLI Commands](#14-mlflow-cli-commands)
   - [15. AWS Integration with MLflow](#15-aws-integration-with-mlflow)
+    - [AWS Setup](#aws-setup)
   - [Authorship](#authorship)
   - [Interesting Links](#interesting-links)
 
@@ -2023,6 +2024,28 @@ mlflow runs restore --run-id
 ```
 
 ## 15. AWS Integration with MLflow
+
+In this section an example project is built entirely on AWS:
+
+- Used AWS services: Sagemaker (ML), EC2 (MLflow) and S3 (storage).
+- Problem/dataset: House price prediction (regression).
+
+Architecture of the implementation:
+
+![AWS Example Architecture](./assets/aws_example_architecture.jpg)
+
+- We can use Github or AWS CodeCommit to host the code.
+- Code development and buld tests are local.
+- We push the code to the remote repository.
+- MLflow server is on an EC2 instance (parameters, metrics, metadata stored in the tracking server VM).
+- All the model artifacts stored in an S3 bucket.
+- We will compare with the UI different model versions and select one.
+- Then, deployment comes: we build a docker image and set a SageMaker endpoint.
+- Once deployed, we'll test the inference.
+
+### AWS Setup
+
+
 
 ## Authorship
 

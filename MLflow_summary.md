@@ -27,6 +27,7 @@ Table of contents:
     - [Running Projects via the Python API](#running-projects-via-the-python-api)
   - [MLflow Client](#mlflow-client)
   - [CLI Commands](#cli-commands)
+  - [Integration with AWS SageMaker](#integration-with-aws-sagemaker)
 
 ## Tracking: Basic Example
 
@@ -931,4 +932,6 @@ mlflow runs delete --run-id
 mlflow runs restore --run-id 
 ```
 
+## Integration with AWS SageMaker
 
+See dedicated section in [`README.md`](./README.md).
