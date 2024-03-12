@@ -1,0 +1,7 @@
+mlruns
+data
+models
+mlartifacts
+cli_artifact
+*.csv
+credentials

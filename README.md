@@ -2095,8 +2095,122 @@ Steps:
       Password: yyy
     
 Now, we sign out and sign in again with the IAM user credentials.
+Next, we need to create **Access Keys**:
+
+    Sign in as IAM user
+    User (up left) > Security credentials
+    Select: Application running on AWS compute service
+      We download the access keys for the services
+      we are going to use: EC2, S3, etc.
+      Confirm: I understand the recommendation
+    Create access key
+    Download and save securely: mlflow-user_accessKeys.csv
+    IMPORTANT: redentials are shown only now!
 
 ### Setup AWS CodeCommit, S3, and EC2
+
+In this section, the basic AWS components are started manually and using the web UI. I think the overall setup is not really secure, because everything is public and can be accessed from anywhere, but I guess the focus of the course is not AWS nor security...
+
+AWS CodeCommit Repository:
+
+    Search: CodeCommit
+    Select Region, e.g., EU-central-1 (Frankfurt)
+    Create repository
+      Name (unique): mlflow-housing-price-example
+      Description: Example repository in which house prices are regressed while using MLflow for tracking operations.
+      Create
+
+    Get credentials
+      https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-gc.html?icmpid=docs_acc_console_connect_np#setting-up-gc-iam
+      Download rcedentials and save them securely
+    Clone repository
+      git clone https://git-codecommit.eu-central-1.amazonaws.com/v1/repos/mlflow-housing-price-example
+
+AWS S3 Bucket:
+
+    Search: S3
+    Create bucket
+      Region: EU-central-1 (Frankfurt)
+      Bucket name (unique): houing-price-mlflow-artifacts
+      Uncheck: Block all public access
+        Check: Acknowledge objects public
+    Leave rest default
+    Create bucket
+
+AWS EC2:
+
+    Search: EC2
+    Launch instance
+      We use a minimum configuration
+      Number or instances: 1
+      Image: Ubuntu
+      Instance Type: t2.micro
+      Name: mlflow-server
+      Key pair (login): needed if we want to connect to EC2 from local machine
+        Create a new key pair
+        Name: mlflow-server-kp
+        Dafault: RSA, .pem
+        Create key pair
+          File downloaded: mlflow-server-kp.pem
+      Network settings
+        Create a security group
+        Allow SSH traffic from anywhere
+        Allow HTTPS traffic from interent
+        Allow HTTP traffic from internet
+      Rest: default
+      Launch instance
+    Instances (left panel): Select instance
+      When instance is running:
+      Connect
+      Shell opens on Web UI
+
+In the shell, we install the dependencies and start the MLflow server.
+The tool [pipenv](https://pipenv.pypa.io/en/latest/) is used to create the environment; `pipenv` is similar to `pip-tools` or `poetry`. We could connect locally using the `mlflow-server-kp.pem` we have downloaded, too.
+
+The following commands need to be run in the EC2 instance:
+
+```bash
+# Update packages list
+sudo apt update
+
+# Install pip
+sudo apt install python3-pip
+
+# Install dependencies
+sudo pip3 install pipenv virtualenv
+
+# Create project folder
+mkdir mlflow
+cd mlflow
+
+# Install dependencies
+pipenv install mlflow awscli boto3 setuptools
+
+# Start a shell with the virtualenv activated. Quit with 'exit'.
+pipenv shell
+
+# Configure AWS: Now, we need the Access Key Credentials crated in the account setup
+aws configure
+# AWS Access Key ID: xxx
+# AWS Secret Access Key: yyy
+# Default region: press Enter
+# Default output: press Enter
+
+# Start MLflow server
+# Host to all: 0.0.0.0
+# Set 
+# - the backend store: SQLite DB
+# - and the artifact store: the bucket name we have specified
+mlflow server -h 0.0.0.0 --backend-store-uri sqlite:///mlflow.db --default-artifact-root s3://houing-price-mlflow-artifacts
+```
+
+After the last command, 
+
+To connect locally to the EC2 instance:
+
+```bash
+
+```
 
 ### Code: Data Preprocessing
 
