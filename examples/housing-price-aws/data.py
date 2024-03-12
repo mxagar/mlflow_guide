@@ -1,3 +1,16 @@
+'''Housing price prediction project.
+MLflow is used for tracking and the project is deployed on AWS.
+
+This module performs the data pre-processing.
+
+Original code from the Udemy course
+
+    MLflow in Action - Master the art of MLOps using MLflow tool
+    https://www.udemy.com/course/mlflow-course/
+
+    Author: J Garg, Real Time Learning
+
+'''
 import numpy as np
 import pandas as pd
 from sklearn.impute import KNNImputer
@@ -15,6 +28,7 @@ y = train['SalePrice']
 # Split the data into training and validation sets
 X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
 
+# For imputing missing values using KNN
 imputer = KNNImputer()
 
 # Separate numeric and non-numeric columns
@@ -32,7 +46,6 @@ for column in non_numeric_cols:
     X_train[column].fillna(X_train[column].mode()[0], inplace=True)
     X_val[column].fillna(X_val[column].mode()[0], inplace=True)
     test[column].fillna(test[column].mode()[0], inplace=True)
-
 
 ohe = OneHotEncoder(drop='first', handle_unknown='ignore')
 
