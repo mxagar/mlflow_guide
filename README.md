@@ -55,8 +55,9 @@ In addition to the current repository, you might be interested in my notes on th
   - [15. AWS Integration with MLflow](#15-aws-integration-with-mlflow)
     - [AWS Account Setup](#aws-account-setup)
     - [Setup AWS CodeCommit, S3, and EC2](#setup-aws-codecommit-s3-and-ec2)
-    - [Code: Data Preprocessing](#code-data-preprocessing)
-    - [Code: Training](#code-training)
+    - [Code Respository](#code-respository)
+      - [Data Preprocessing](#data-preprocessing)
+      - [Training](#training)
     - [MLproject file](#mlproject-file)
     - [Running on Local System](#running-on-local-system)
     - [Setup AWS Sagemaker](#setup-aws-sagemaker)
@@ -2038,7 +2039,9 @@ mlflow runs restore --run-id
 In this section an example project is built entirely on AWS:
 
 - Used AWS services: CodeCommit, Sagemaker (ML), EC2 (MLflow) and S3 (storage).
-- Problem/dataset: House price prediction (regression).
+- Problem/dataset: [House price prediction (regression)](https://www.kaggle.com/competitions/house-prices-advanced-regression-techniques).
+
+The code of the project is on a different repository connected to CodeCommit. However, I have added the final version to [`examples/housing-price-aws/`](./examples/housing-price-aws/).
 
 Architecture of the implementation:
 
@@ -2122,9 +2125,19 @@ AWS CodeCommit Repository:
 
     Get credentials
       https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-gc.html?icmpid=docs_acc_console_connect_np#setting-up-gc-iam
-      Download rcedentials and save them securely
-    Clone repository
+      Download credentials and save them securely
+
+      Username (up right) > Security credentials
+      AWS CodeCommit credentials (2nd tab, horizontal menu)
+        HTTPS Git credentials for AWS CodeCommit: Generate credentials
+          Download credentials: mlflow-user_codecommit_credentials.csv
+          IMPORTANT: only shown once!
+          Save them in secure place!
+
+    Clone repository in local folder:
       git clone https://git-codecommit.eu-central-1.amazonaws.com/v1/repos/mlflow-housing-price-example
+      The first time we need to introduce our credentials downloaded before: username, pw
+      If we commit & push anything, we should see the changes in the CodeCommit repository (web UI)
 
 AWS S3 Bucket:
 
@@ -2159,7 +2172,7 @@ AWS EC2:
         Allow HTTP traffic from internet
       Rest: default
       Launch instance
-    Instances (left panel): Select instance
+    EC2 > Instances (left panel): Select instance
       When instance is running:
       Connect
       Shell opens on Web UI
@@ -2204,17 +2217,122 @@ aws configure
 mlflow server -h 0.0.0.0 --backend-store-uri sqlite:///mlflow.db --default-artifact-root s3://houing-price-mlflow-artifacts
 ```
 
-After the last command, 
+After the last command, the server is launched:
+    
+    ...
+    Listening at: http://0.0.0.0:5000
+    ...
 
-To connect locally to the EC2 instance:
+To use it, we need to expose the port `5000` of the EC2 instance:
+
+    EC2 > Instances (left panel): Select instance
+      Scroll down > Security tab (horizontal menu)
+      We click on our segurity group: sg-xxx
+      Edit inbound rules
+        Add rule
+          Type: Custom TCP
+          Port: 5000
+          Source: Anywhere-IPv4 (0.0.0.0)
+        Save rules
+
+Additionally, we copy to a safe place the public DNS of the EC2 instance:
+
+    EC2 > Instances (left panel): Select instance (we go back to our instance)
+      Copy the Public IPv4 DNS (instance summary dashboard), e.g.:
+        ec2-<IP-number>.eu-central-1.compute.amazonaws.com
+
+Now, we can open the browser and paste the DNS followed by the port number 5000; the Mlflow UI will open!
+
+    ec2-<IP-number>.eu-central-1.compute.amazonaws.com:5000
+
+We can close the window of the EC2 instance shell on the web UI; the server will continue running.
+If we want to connect locally to the EC2 instance, first we make sure that the port 22 is exposed to inbound connections from anywhere (follow the same steps as for opening port 5000). Then, we can `ssh` as follows:
 
 ```bash
+# Go to the folder where the PEM credentials are
+cd .../examples/housing-price-aws/credentials
 
+# On Unix, we need to make the PEM file readable only for the owner
+# chmod 600 mlflow-server-kp.pem
+
+# Connect via SSH
+# Replace:
+# - username: ubuntu if Ubuntu, ec2-user is Amazon Linux
+# - Public-DNS: ec2-<IP-number>.eu-central-1.compute.amazonaws.com
+# - key-pair.pem: mlflow-server-kp.pem
+ssh -i <key-pair.pem> <username>@<Public-DNS>
 ```
 
-### Code: Data Preprocessing
+### Code Respository
 
-### Code: Training
+From now on, we work ok the repository cloned locally.
+
+Respository structure:
+
+```
+C:.
+│   conda.yaml
+│   data.py           # Data pre-processing
+│   deploy.py
+│   MLproject
+│   params.py
+│   run.py
+│   test.py
+│   train.py
+│   utils.py
+│
+├───credentials/
+│
+└───data/
+        test.csv
+        train.csv
+```
+
+Dataset schema:
+
+```
+ #   Column         Non-Null Count  Dtype  
+---  ------         --------------  -----  
+ 0   Id             1460 non-null   int64  
+ 1   MSSubClass     1460 non-null   int64  
+ 2   MSZoning       1460 non-null   object 
+ 3   LotFrontage    1201 non-null   float64
+ 4   LotArea        1460 non-null   int64  
+ 5   Street         1460 non-null   object 
+ 6   Alley          91 non-null     object 
+ 7   LotShape       1460 non-null   object 
+ 8   LandContour    1460 non-null   object 
+ 9   Utilities      1460 non-null   object 
+ 10  LotConfig      1460 non-null   object 
+ 11  LandSlope      1460 non-null   object 
+ 12  Neighborhood   1460 non-null   object 
+ 13  Condition1     1460 non-null   object 
+ 14  Condition2     1460 non-null   object 
+ 15  BldgType       1460 non-null   object 
+ 16  HouseStyle     1460 non-null   object 
+ 17  OverallQual    1460 non-null   int64  
+ 18  OverallCond    1460 non-null   int64  
+ 19  YearBuilt      1460 non-null   int64  
+...
+ 79  SaleCondition  1460 non-null   object 
+ 80  SalePrice      1460 non-null   int64  <- TARGET!
+```
+
+#### Data Preprocessing
+
+All the data preprocessing happens in `data.py`:
+
+- Datasets loaded (train & test).
+- Train/validation split.
+- Target/independent variable selection.
+- Missing value imputation with KNN.
+- Categorical feature one-hot encoding.
+- **The transformed `X_train`, `X_val` and `test` are the product.**
+
+
+#### Training
+
+All the training happens in `train.py`. Here, we start using `mlflow`.
 
 ### MLproject file
 
