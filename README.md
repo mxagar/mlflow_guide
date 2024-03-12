@@ -53,7 +53,17 @@ In addition to the current repository, you might be interested in my notes on th
   - [13. MLflow Client](#13-mlflow-client)
   - [14. MLflow CLI Commands](#14-mlflow-cli-commands)
   - [15. AWS Integration with MLflow](#15-aws-integration-with-mlflow)
-    - [AWS Setup](#aws-setup)
+    - [AWS Account Setup](#aws-account-setup)
+    - [Setup AWS CodeCommit, S3, and EC2](#setup-aws-codecommit-s3-and-ec2)
+    - [Code: Data Preprocessing](#code-data-preprocessing)
+    - [Code: Training](#code-training)
+    - [MLproject file](#mlproject-file)
+    - [Running on Local System](#running-on-local-system)
+    - [Setup AWS Sagemaker](#setup-aws-sagemaker)
+    - [Training on AWS Sagemaker](#training-on-aws-sagemaker)
+    - [Model comparison and Evaluation](#model-comparison-and-evaluation)
+    - [Deployment on AWS Sagemaker](#deployment-on-aws-sagemaker)
+    - [Model Inference](#model-inference)
   - [Authorship](#authorship)
   - [Interesting Links](#interesting-links)
 
@@ -2027,7 +2037,7 @@ mlflow runs restore --run-id
 
 In this section an example project is built entirely on AWS:
 
-- Used AWS services: Sagemaker (ML), EC2 (MLflow) and S3 (storage).
+- Used AWS services: CodeCommit, Sagemaker (ML), EC2 (MLflow) and S3 (storage).
 - Problem/dataset: House price prediction (regression).
 
 Architecture of the implementation:
@@ -2043,9 +2053,9 @@ Architecture of the implementation:
 - Then, deployment comes: we build a docker image and set a SageMaker endpoint.
 - Once deployed, we'll test the inference.
 
-### AWS Setup
+### AWS Account Setup
 
-First steps:
+Steps:
 
 - First, we need to create an account (set MFA).
 - Then, we log in with the root user.
@@ -2084,6 +2094,27 @@ First steps:
       Username: mlflow-user
       Password: yyy
     
+Now, we sign out and sign in again with the IAM user credentials.
+
+### Setup AWS CodeCommit, S3, and EC2
+
+### Code: Data Preprocessing
+
+### Code: Training
+
+### MLproject file
+
+### Running on Local System
+
+### Setup AWS Sagemaker
+
+### Training on AWS Sagemaker
+
+### Model comparison and Evaluation
+
+### Deployment on AWS Sagemaker
+
+### Model Inference
 
 ## Authorship
 
