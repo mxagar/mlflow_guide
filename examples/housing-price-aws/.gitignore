@@ -1,7 +1,9 @@
 mlruns
-data
 models
 mlartifacts
 cli_artifact
-*.csv
 credentials
+__pycache__
+.vscode
+.DS_Store
+.ipynb_checkpoints
