@@ -12,3 +12,5 @@ python-dotenv
 jupyter
 mlflow
 shap
+xgboost
+boto3
