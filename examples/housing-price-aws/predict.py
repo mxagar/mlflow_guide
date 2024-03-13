@@ -1,3 +1,16 @@
+'''Housing price prediction project.
+MLflow is used for tracking and the project is deployed on AWS.
+
+This module tests the inference.
+
+Original code from the Udemy course
+
+    MLflow in Action - Master the art of MLOps using MLflow tool
+    https://www.udemy.com/course/mlflow-course/
+
+    Author: J Garg, Real Time Learning
+
+'''
 from data import test
 import boto3
 import json
