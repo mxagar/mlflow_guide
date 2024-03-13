@@ -2278,9 +2278,9 @@ C:.
 │   MLproject
 │   params.py
 │   run.py
-│   test.py
+│   predict.py
 │   train.py
-│   utils.py
+│   eval.py
 │
 ├───credentials/
 │
@@ -2335,62 +2335,76 @@ All the data preprocessing happens in `data.py`:
 The training happens in 
 
 - `params.py`:
-- `utils.py`:
+- `eval.py`:
 - `train.py`: 
 
 Here, we start using `mlflow`; however, the `mlflow` dependencies and calls are only in `train.py`. Additionally, those dependencies/calls are as generic as possible, i.e., we don't define any experiment/run ids/names, tracking URIs, etc. The idea is to have the code as reusable as possible, and we leave any configuration to `MLproject` and higher level files, like `run.py`:
 
 ```python
+import argparse
 import mlflow
-import numpy as np
 from sklearn.linear_model import Ridge, ElasticNet
 from xgboost import XGBRegressor
 from sklearn.model_selection import ParameterGrid
 from data import X_train, X_val, y_train, y_val
 from params import ridge_param_grid, elasticnet_param_grid, xgb_param_grid
-from utils import eval_metrics
+from eval import eval_metrics
 
-# Model: ElasticNet
-# NOTE: We usually don't hard-code any experiment/run name/ids,
-# these are set dynamically
-# and here MLproject contains the important configuration,
-# so that the script/code is generic!
-# Also, it is common to have a run.py file which uses hard-coded values (i.e., URIs).
-# Loop through the hyperparameter combinations and log results in separate runs
-for params in ParameterGrid(elasticnet_param_grid):
-    with mlflow.start_run():
-        # Fir model
-        lr = ElasticNet(**params)
-        lr.fit(X_train, y_train)
 
-        # Evaluate trained model
-        y_pred = lr.predict(X_val)
-        metrics = eval_metrics(y_val, y_pred)
+def train(model_name):
+    
+    # Select model and parameter grid based on input argument
+    # Dafault: XGBRegressor
+    model_cls = XGBRegressor
+    param_grid = xgb_param_grid
+    log_model = mlflow.xgboost.log_model
+    if model_name == 'ElasticNet':
+        model_cls = ElasticNet
+        param_grid = elasticnet_param_grid
+        log_model = mlflow.sklearn.log_model
+    elif model_name == 'Ridge':
+        model_cls = Ridge
+        param_grid = ridge_param_grid
+        log_model = mlflow.sklearn.log_model
+    else:
+        # Defaults to XGBRegressor if --model is not provided or is incorrect
+        pass
 
-        # Logging the inputs such as dataset
-        mlflow.log_input(
-            mlflow.data.from_numpy(X_train.toarray()),
-            context='Training dataset'
-        )
-        mlflow.log_input(
-            mlflow.data.from_numpy(X_val.toarray()),
-            context='Validation dataset'
-        )
+    # NOTE: We usually don't hard-code any experiment/run name/ids,
+    # these are set dynamically
+    # and here MLproject contains the important configuration,
+    # so that the script/code is generic!
+    # Also, it is common to have a run.py file which uses hard-coded values (i.e., URIs).
+    # Loop through the hyperparameter combinations and log results in separate runs
+    for params in ParameterGrid(param_grid):
+        with mlflow.start_run():
+            # Fit model
+            model = model_cls(**params)
+            model.fit(X_train, y_train)
 
-        # Log hyperparameters
-        mlflow.log_params(params)
+            # Evaluate trained model
+            y_pred = model.predict(X_val)
+            metrics = eval_metrics(y_val, y_pred)
 
-        # Log metrics
-        mlflow.log_metrics(metrics)
+            # Logging the inputs and parameters
+            mlflow.log_params(params)
+            mlflow.log_metrics(metrics)
 
-        # Log the trained model
-        mlflow.sklearn.log_model(
-            lr,
-            "ElasticNet",
-             input_example=X_train,
-             # Log the files used for training, too!
-             code_paths=['train.py','data.py','params.py','utils.py']
-        )
+            # Log the trained model
+            log_model(
+                model,
+                model_name,
+                input_example=X_train[:5],
+                code_paths=['train.py', 'data.py', 'params.py', 'eval.py']
+            )
+
+if __name__ == "__main__":
+    # Parse arguments with a default model
+    parser = argparse.ArgumentParser(description='Train a model.')
+    parser.add_argument('--model', type=str, choices=['ElasticNet', 'Ridge', 'XGBRegressor'], default='XGBRegressor', help='The model to train. Defaults to XGBRegressor.')
+    args = parser.parse_args()
+
+    train(args.model)
 
 ```
 
@@ -2399,11 +2413,15 @@ for params in ParameterGrid(elasticnet_param_grid):
 The `MLproject` file contains only one entry point:
 
 ```yaml
-name: "Hosuing price prediction"
+name: "Housing Price Prediction"
+
 conda_env: conda.yaml
+
 entry_points:
-    Training:
-        command: "python train.py"
+  main:
+    parameters:
+      model: {type: string, default: "ElasticNet", choices: ["ElasticNet", "Ridge", "XGBRegressor"]}
+    command: "python train.py --model {model}"
 ```
 
 Even though we could run the training via CLI, it is common to use the Python MLflow API, as done here with `run.py`:
@@ -2411,17 +2429,21 @@ Even though we could run the training via CLI, it is common to use the Python ML
 ```python
 import mlflow
 
-experiment_name = "ElasticNet"
-entry_point = "Training"
+models = ["ElasticNet", "Ridge", "XGBRegressor"]
+entry_point = "main"
 
 mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
-mlflow.projects.run(
-    uri=".",
-    entry_point=entry_point,
-    experiment_name=experiment_name,
-    env_manager="conda"
-)
+for model in models:
+    experiment_name = model
+    mlflow.set_experiment(experiment_name)
+    
+    mlflow.projects.run(
+        uri=".",
+        entry_point=entry_point,
+        parameters={"model": model},
+        env_manager="conda"
+    )
 ```
 
 To use `run.py`:
@@ -2439,8 +2461,9 @@ conda activate mlflow
 cd .../mlflow-housing-price-example
 python run.py
 
-# Browser: Open URI:5000 == 127.0http://127.0.0.1:5000
-# We should see 18 runs with their metrics, parameters, artifacts (dataset & model), etc.
+# Browser: Open URI:5000 == http://127.0.0.1:5000
+# We should see 3 (Ridge, ElasticNet, XGBoostRegressor) experiments with several runs each,
+# containing metrics, parameters, artifacts (dataset & model), etc.
 ```
 
 ![MLflow UI: Local Runs](./assets/mlflow_local_runs_example.jpg)
@@ -2449,7 +2472,97 @@ After we have finished, we commit to the AWS CodeCommit repo.
 
 ### Setup AWS Sagemaker
 
+We log in with the IAM user credentials.
+
+AWS SageMaker is the service from AWS to do anything related to ML: from notebook to deployment.
+
+To set Sagemaker up, we need to:
+
+- Add our repository
+- Create a new IAM role with permissions for: CodeCommit (repo), S3 (store), ECR (build container image for deployment)
+  - Note: we have create an IAM user, but now we need an IAM role, these are different things.
+- Create a notebook instance: **even though it's called notebook, it's really a Jupyter Lab server where we have Python scripts, a terminal and also notebooks; in fact we're going to use the Terminal along with scripts, no the notebooks**.
+
+To add our repository to SageMaker:
+
+    Search: SageMaker
+    Left panel: Notebook > Git repositories
+      Add repository
+        We can choose AWS CodeCommit / Github / Other
+        Choose AWS CodeCommit
+        Select
+          Our repo: mlflow-housing-price-example
+          Branch: master
+          Name: mlflow-housing-price-example
+      Add repository
+
+To create a new IAM role with the necessari permissions:
+
+    Username (up left) > Security credentials
+    Access management (left panel): (IAM) roles > Create role
+      AWS Service
+      Use case: SageMaker
+        The role will have SageMaker execution abilities
+      Next
+      Name
+        Role name: house-price-role
+      Create role
+
+    Now, we need to give it more permissions: CodeCommit, S3, ECR (to build image container)
+    IAM Roles: Open role 'house-price-role'
+      Permission policies: we should see AmazonSageMakerFullAccess
+      Add permissions > Attach policies:
+        AWSCodeCommitFullAccess
+        AWSCodeCommitPowerUser
+        AmazonS3FullAccess
+        EC2InstanceProfileForImageBuilderECRContainerBuilds
+
+To create a notebook instance on SageMaker:
+
+    Left panel: Notebook > Notebook instances
+      Create notebook instance
+        Notebook instance settings
+          Name: house-price-nb
+          Instance type: ml.t3.large (smaller ones might fail)
+        Permissions and encryption
+          IAM role: house-price-role (just created)
+          Enable root access to the notebook
+        Git repositories: we add our repo
+          Default repository: mlflow-housing-price-example - AWS CodeCommit
+        Create notebook instance
+
+Then, the notebook instance is created; we wait for it to be in service, then, we `Open JupyterLab`. We will see that the CodeCommit repository has been cloned to the Jupyter Lab file system: `/home/ec2-user/SageMaker/mlflow-housing-price-example`.
+
+In the Jupyter Lab server instance, we can open
+
+- Code files: however, we ususally develop on our local machine.
+- Terminals: however, the conda.yaml environment is not really installed.
+- Notebooks: we don't need to use them really, we can do everything with our Python files an the terminal.
+- etc.
+
+If we locally/remotely modify anything in the files, we can synchronize as usually with the repository; in a Terminal:
+
+```bash
+cd .../mlflow-housing-price-example
+git pull
+git push
+```
+
+Therefore, we can actually develop on our local machine and 
+
+- `git push` on our machine
+- `git pull` on a SageMaker notebook terminal
+
+
 ### Training on AWS Sagemaker
+
+We open the notebook instance on SageMaker:
+
+    Left panel: Notebook > Notebook instances
+      house-price-nb > Open JupyterLab
+
+Then, 
+
 
 ### Model comparison and Evaluation
 

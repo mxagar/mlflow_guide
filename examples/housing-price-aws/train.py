@@ -24,15 +24,21 @@ from eval import eval_metrics
 def train(model_name):
     
     # Select model and parameter grid based on input argument
+    # Dafault: XGBRegressor
+    model_cls = XGBRegressor
+    param_grid = xgb_param_grid
+    log_model = mlflow.xgboost.log_model
     if model_name == 'ElasticNet':
         model_cls = ElasticNet
         param_grid = elasticnet_param_grid
+        log_model = mlflow.sklearn.log_model
     elif model_name == 'Ridge':
         model_cls = Ridge
         param_grid = ridge_param_grid
-    else:  # Defaults to XGBRegressor if --model is not provided or is incorrect
-        model_cls = XGBRegressor
-        param_grid = xgb_param_grid
+        log_model = mlflow.sklearn.log_model
+    else:
+        # Defaults to XGBRegressor if --model is not provided or is incorrect
+        pass
 
     # NOTE: We usually don't hard-code any experiment/run name/ids,
     # these are set dynamically
@@ -55,7 +61,7 @@ def train(model_name):
             mlflow.log_metrics(metrics)
 
             # Log the trained model
-            mlflow.log_model(
+            log_model(
                 model,
                 model_name,
                 input_example=X_train[:5],
@@ -65,7 +71,7 @@ def train(model_name):
 if __name__ == "__main__":
     # Parse arguments with a default model
     parser = argparse.ArgumentParser(description='Train a model.')
-    parser.add_argument('--model', type=str, choices=['ElasticNet', 'Ridge', 'XGBRegressor'], default='ElasticNet', help='The model to train. Defaults to ElasticNet.')
+    parser.add_argument('--model', type=str, choices=['ElasticNet', 'Ridge', 'XGBRegressor'], default='XGBRegressor', help='The model to train. Defaults to XGBRegressor.')
     args = parser.parse_args()
 
     train(args.model)
