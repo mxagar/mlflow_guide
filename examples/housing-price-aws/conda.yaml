@@ -1,4 +1,4 @@
-name: house_price_pred
+name: mlflow
 channels:
   - defaults
 dependencies:
