@@ -1,5 +1,16 @@
+'''Housing price prediction project.
+MLflow is used for tracking and the project is deployed on AWS.
 
-# Ridge Param Grid
+This module defnes the hyperparameters.
+
+Original code from the Udemy course
+
+    MLflow in Action - Master the art of MLOps using MLflow tool
+    https://www.udemy.com/course/mlflow-course/
+
+    Author: J Garg, Real Time Learning
+
+'''
 ridge_param_grid = {
     'alpha': [0.1, 1.0, 10.0],
     'fit_intercept': [True, False],
@@ -10,7 +21,6 @@ elasticnet_param_grid = {
     'l1_ratio': [0.2, 0.5, 0.8],
     'fit_intercept': [True, False],
 }
-
 
 xgb_param_grid = {
     'n_estimators': [100, 200, 300],  # Number of boosting rounds
