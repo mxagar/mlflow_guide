@@ -55,11 +55,10 @@ In addition to the current repository, you might be interested in my notes on th
   - [15. AWS Integration with MLflow](#15-aws-integration-with-mlflow)
     - [AWS Account Setup](#aws-account-setup)
     - [Setup AWS CodeCommit, S3, and EC2](#setup-aws-codecommit-s3-and-ec2)
-    - [Code Respository](#code-respository)
+    - [Code Respository and Development](#code-respository-and-development)
       - [Data Preprocessing](#data-preprocessing)
       - [Training](#training)
-    - [MLproject file](#mlproject-file)
-    - [Running on Local System](#running-on-local-system)
+      - [MLproject file and Running Locally](#mlproject-file-and-running-locally)
     - [Setup AWS Sagemaker](#setup-aws-sagemaker)
     - [Training on AWS Sagemaker](#training-on-aws-sagemaker)
     - [Model comparison and Evaluation](#model-comparison-and-evaluation)
@@ -1544,6 +1543,8 @@ The [**environment can be specified**](https://www.mlflow.org/docs/latest/projec
 python_env: files/config/python_env.yaml
 
 # Conda: conda env export --name <env_name> > conda.yaml
+# HOWEVER: note that the conda file should be generic for all platforms
+# so sometimes we need to remove some build numbers...
 conda_env: files/config/conda.yaml
 
 # Docker image: we can use a prebuilt image
@@ -2263,7 +2264,7 @@ cd .../examples/housing-price-aws/credentials
 ssh -i <key-pair.pem> <username>@<Public-DNS>
 ```
 
-### Code Respository
+### Code Respository and Development
 
 From now on, we work ok the repository cloned locally.
 
@@ -2329,14 +2330,122 @@ All the data preprocessing happens in `data.py`:
 - Categorical feature one-hot encoding.
 - **The transformed `X_train`, `X_val` and `test` are the product.**
 
-
 #### Training
 
-All the training happens in `train.py`. Here, we start using `mlflow`.
+The training happens in 
 
-### MLproject file
+- `params.py`:
+- `utils.py`:
+- `train.py`: 
 
-### Running on Local System
+Here, we start using `mlflow`; however, the `mlflow` dependencies and calls are only in `train.py`. Additionally, those dependencies/calls are as generic as possible, i.e., we don't define any experiment/run ids/names, tracking URIs, etc. The idea is to have the code as reusable as possible, and we leave any configuration to `MLproject` and higher level files, like `run.py`:
+
+```python
+import mlflow
+import numpy as np
+from sklearn.linear_model import Ridge, ElasticNet
+from xgboost import XGBRegressor
+from sklearn.model_selection import ParameterGrid
+from data import X_train, X_val, y_train, y_val
+from params import ridge_param_grid, elasticnet_param_grid, xgb_param_grid
+from utils import eval_metrics
+
+# Model: ElasticNet
+# NOTE: We usually don't hard-code any experiment/run name/ids,
+# these are set dynamically
+# and here MLproject contains the important configuration,
+# so that the script/code is generic!
+# Also, it is common to have a run.py file which uses hard-coded values (i.e., URIs).
+# Loop through the hyperparameter combinations and log results in separate runs
+for params in ParameterGrid(elasticnet_param_grid):
+    with mlflow.start_run():
+        # Fir model
+        lr = ElasticNet(**params)
+        lr.fit(X_train, y_train)
+
+        # Evaluate trained model
+        y_pred = lr.predict(X_val)
+        metrics = eval_metrics(y_val, y_pred)
+
+        # Logging the inputs such as dataset
+        mlflow.log_input(
+            mlflow.data.from_numpy(X_train.toarray()),
+            context='Training dataset'
+        )
+        mlflow.log_input(
+            mlflow.data.from_numpy(X_val.toarray()),
+            context='Validation dataset'
+        )
+
+        # Log hyperparameters
+        mlflow.log_params(params)
+
+        # Log metrics
+        mlflow.log_metrics(metrics)
+
+        # Log the trained model
+        mlflow.sklearn.log_model(
+            lr,
+            "ElasticNet",
+             input_example=X_train,
+             # Log the files used for training, too!
+             code_paths=['train.py','data.py','params.py','utils.py']
+        )
+
+```
+
+#### MLproject file and Running Locally
+
+The `MLproject` file contains only one entry point:
+
+```yaml
+name: "Hosuing price prediction"
+conda_env: conda.yaml
+entry_points:
+    Training:
+        command: "python train.py"
+```
+
+Even though we could run the training via CLI, it is common to use the Python MLflow API, as done here with `run.py`:
+
+```python
+import mlflow
+
+experiment_name = "ElasticNet"
+entry_point = "Training"
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+
+mlflow.projects.run(
+    uri=".",
+    entry_point=entry_point,
+    experiment_name=experiment_name,
+    env_manager="conda"
+)
+```
+
+To use `run.py`:
+
+```bash
+# Terminal 1: Start MLflow Tracking Server
+conda activate mlflow
+cd .../mlflow-housing-price-example
+mlflow server
+
+# Terminal 2: Run pipeline
+# Since we are running a hyperparameter tuning
+# the execution might take some time
+conda activate mlflow
+cd .../mlflow-housing-price-example
+python run.py
+
+# Browser: Open URI:5000 == 127.0http://127.0.0.1:5000
+# We should see 18 runs with their metrics, parameters, artifacts (dataset & model), etc.
+```
+
+![MLflow UI: Local Runs](./assets/mlflow_local_runs_example.jpg)
+
+After we have finished, we commit to the AWS CodeCommit repo.
 
 ### Setup AWS Sagemaker
 
