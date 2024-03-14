@@ -2788,8 +2788,13 @@ print(prediction)
 
 We need to remove these AWS services (in the region we have worked):
 
-- A
-- B
+- [x] SageMaker Endpoint (Inference)
+- [x] SageMaker Notebook
+- [x] S3 bucket
+- [x] ECR image (Repository)
+- [x] EC2 instance (Terminate)
+
+We can keep the role and keys.
 
 ## Authorship
 
