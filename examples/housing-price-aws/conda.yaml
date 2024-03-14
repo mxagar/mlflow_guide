@@ -71,3 +71,4 @@ dependencies:
       - xgboost
       - zipp
       - boto3
+      - python-dotenv
