@@ -36,7 +36,6 @@ numeric_cols = X_train.select_dtypes(include=['int64', 'float64']).columns
 non_numeric_cols = X_train.select_dtypes(exclude=['int64', 'float64']).columns
 
 # Impute missing values for numeric columns using KNNImputer
-imputer = KNNImputer()
 X_train[numeric_cols] = imputer.fit_transform(X_train[numeric_cols])
 X_val[numeric_cols] = imputer.transform(X_val[numeric_cols])
 test[numeric_cols] = imputer.transform(test[numeric_cols])
@@ -47,6 +46,9 @@ for column in non_numeric_cols:
     X_val[column].fillna(X_val[column].mode()[0], inplace=True)
     test[column].fillna(test[column].mode()[0], inplace=True)
 
+# FIXME: This approach is not correct in later versions of Scikit-Learn...
+# OHE returns a sparse matrix and, on top pf that, we should apply it
+# to categoricals only and proably using a ColumnTransformer...
 ohe = OneHotEncoder(drop='first', handle_unknown='ignore')
 
 X_train = ohe.fit_transform(X_train)
