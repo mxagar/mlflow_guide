@@ -61,9 +61,10 @@ In addition to the current repository, you might be interested in my notes on th
       - [MLproject file and Running Locally](#mlproject-file-and-running-locally)
     - [Setup AWS Sagemaker](#setup-aws-sagemaker)
     - [Training on AWS Sagemaker](#training-on-aws-sagemaker)
-    - [Model comparison and Evaluation](#model-comparison-and-evaluation)
+    - [Model Comparison and Evaluation](#model-comparison-and-evaluation)
     - [Deployment on AWS Sagemaker](#deployment-on-aws-sagemaker)
     - [Model Inference](#model-inference)
+    - [Clean Up](#clean-up)
   - [Authorship](#authorship)
   - [Interesting Links](#interesting-links)
 
@@ -2057,6 +2058,14 @@ Architecture of the implementation:
 - Then, deployment comes: we build a docker image and set a SageMaker endpoint.
 - Once deployed, we'll test the inference.
 
+Notes:
+
+- Create a **non-committed** folder, e.g., `credentials`, where files with secrets and specific URIs will be saved.
+- We can stop the compute services while not used to save costs (stopped compute services don't iincur costs).
+  - The EC2 instance requires to manually launch the MLflow server if restarted; the local data persists.
+  - The SageMaker notebook requisres to re-install any packages we have installed (e.g., mlflow); the local data persists.
+- When we finish, remove all resources! See section [Clean Up](#clean-up).
+
 ### AWS Account Setup
 
 Steps:
@@ -2110,6 +2119,26 @@ Next, we need to create **Access Keys**:
     Create access key
     Download and save securely: mlflow-user_accessKeys.csv
     IMPORTANT: redentials are shown only now!
+
+We should create a `.env` file which contains
+
+```
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+AWS_DEFAULT_REGION="eu-central-1"
+```
+
+Then, using `python-dotenv`, we can load these variables to the environment from any Python file, when needed:
+
+```python
+from dotenv import load_dotenv
+
+# Load environment variables in .env:
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
+load_dotenv()
+```
+
+However, note that these variables are needed only locally, since all AWS environment in which we log in using the IAM role have already the credentials!
 
 ### Setup AWS CodeCommit, S3, and EC2
 
@@ -2240,13 +2269,16 @@ Additionally, we copy to a safe place the public DNS of the EC2 instance:
 
     EC2 > Instances (left panel): Select instance (we go back to our instance)
       Copy the Public IPv4 DNS (instance summary dashboard), e.g.:
-        ec2-<IP-number>.eu-central-1.compute.amazonaws.com
+        ec2-<IP-number>.<region>.amazonaws.com
 
 Now, we can open the browser and paste the DNS followed by the port number 5000; the Mlflow UI will open!
 
-    ec2-<IP-number>.eu-central-1.compute.amazonaws.com:5000
+    ec2-<IP-number>.<region>.amazonaws.com:5000
 
 We can close the window of the EC2 instance shell on the web UI; the server will continue running.
+
+**If we stop the EC2 server to safe costs, we need to re-start it, open a terminal and restart the server again by executing the commands above. However, note that the the public DNS might change!** The artifacts will persist (they are in S3) and the backend store which is local to the EC2 instance (mlflow.db), too.
+
 If we want to connect locally to the EC2 instance, first we make sure that the port 22 is exposed to inbound connections from anywhere (follow the same steps as for opening port 5000). Then, we can `ssh` as follows:
 
 ```bash
@@ -2272,15 +2304,15 @@ Respository structure:
 
 ```
 C:.
-│   conda.yaml
+│   conda.yaml        # Environment
 │   data.py           # Data pre-processing
-│   deploy.py
+│   deploy.py         # Deploy model to Sagemaker endopoint image
 │   MLproject
-│   params.py
-│   run.py
-│   predict.py
-│   train.py
-│   eval.py
+│   params.py         # Hyperparameter search space
+│   run.py            # Run training using mlflow & MLproject
+│   predict.py        # Inference
+│   train.py          # Entrypoint for MLproject
+│   eval.py           # EValuation metrics
 │
 ├───credentials/
 │
@@ -2329,6 +2361,8 @@ All the data preprocessing happens in `data.py`:
 - Missing value imputation with KNN.
 - Categorical feature one-hot encoding.
 - **The transformed `X_train`, `X_val` and `test` are the product.**
+
+**IMPORTANT NOTE**: Even though the `data.py` script works with the environment, it has some issues for newer Scikit-Learn versions and the code needs to be updated accordingly: `OneHotEncoder` returns a sparse matrix and, on top pf that, we should apply it to categoricals only, thus we proably need a `ColumnTransformer`.
 
 #### Training
 
@@ -2432,6 +2466,8 @@ import mlflow
 models = ["ElasticNet", "Ridge", "XGBRegressor"]
 entry_point = "main"
 
+# We will change this depending on local tests / AWS runs
+#mlflow.set_tracking_uri("http://ec2-<IP-number>.<region>.amazonaws.com:5000")
 mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
 for model in models:
@@ -2457,6 +2493,7 @@ mlflow server
 # Terminal 2: Run pipeline
 # Since we are running a hyperparameter tuning
 # the execution might take some time
+# WARNING: the XGBoostRegressor model has many parameter combinations!
 conda activate mlflow
 cd .../mlflow-housing-price-example
 python run.py
@@ -2553,6 +2590,7 @@ Therefore, we can actually develop on our local machine and
 - `git push` on our machine
 - `git pull` on a SageMaker notebook terminal
 
+**If we stop the SageMaker Notebook instance to safe costs, we need to re-start it.** The notebook local data will persist, but if we have installed anything in the environment (e.g., mlflow), we need to re-install it.
 
 ### Training on AWS Sagemaker
 
@@ -2561,14 +2599,197 @@ We open the notebook instance on SageMaker:
     Left panel: Notebook > Notebook instances
       house-price-nb > Open JupyterLab
 
-Then, 
+Then, in the Jupyter Lab instance:
 
+- `git pull` in a Terminal, just in case
+- Change the tracking server URI to the AWS EC2 public DNS in the `run.py` (we could use `dotenv` instead...)
 
-### Model comparison and Evaluation
+    ```
+    PREVIOUS: http://127.0.0.1:5000
+    NEW: http://ec2-<IP-number>.<region>.amazonaws.com:5000 (Public IPv4 from the EC2 instance)
+    ```
+- Run the `run.py` script in the Termnial:
+
+    ```bash
+    # Go to the repo folder, if not in there
+    cd .../mlflow-housing-price-example
+    
+    # We install mlflow just to be able to load MLproject and execute run.py
+    # which will then set the correct conda environment in conda.yaml
+    pip install mlflow
+
+    # Run all experiments
+    python run.py
+    ```
+- Open the MLflow UI hosted on AWS with the browser: `http://ec2-<IP-number>.<region>.amazonaws.com:5000`
+
+Now, we can see that the entries that appear in the server/UI hosted on AWS are similar to the local ones; however:
+
+- On AWS, if we pick a run and check the artifact URIs in it, we'll see they are of the form `s3://<bucket-name>/...`.
+- If we go to the S3 UI on the AWS web interface and open the created bucket, we will see the artifacts.
+
+### Model Comparison and Evaluation
+
+Model comparison and evaluation is done as briefly introduced in [MLflow UI - 01_tracking](#mlflow-ui---01_tracking):
+
+- We pick an experiment.
+- We select the runs we want, e.g., all.
+- We click on `Compare`.
+- We can use either the plots or the metrics.
+- We select the best one (e.g., the one with the best desired metric), open the Run ID and click on `Register model`.
+  - Create a model, e.g., `best`.
+    - Note: if we create one model registry and assign the different experiment models as versions to it we can compare the selected ones in the registry.
+    - Alternative: we create a registry of each model: `elasticnet`, `ridge`, `xgboost`.
+  - Go to the `Models` tab (main horizontal menu), click on a model version, add tags, e.g., `staging`.
+
+![Comparing Runs: Plots](./assets/mlflow_comparing_runs_plot.jpg)
+![Comparing Runs: Metrics](./assets/mlflow_comparing_runs_metrics.jpg)
+![Comparing Runs: Registering](./assets/mlflow_register_ui.jpg)
+
+Usually, we add the alias `production` to the final selected model.
+
+To get the **model URI**, select the model version we want, go to the run link and find the artifact path, e.g.:
+
+    s3://<bucket-name>/<experiment-id>/<run-id>/artifacts/XGBRegressor
+
 
 ### Deployment on AWS Sagemaker
 
+In order to deploy a model, first we need to build a parametrized docker image with the command [`mlflow sagemaker build-and-push-container`](https://mlflow.org/docs/latest/cli.html#mlflow-sagemaker-build-and-push-container). This command doesn't directly deploy a model; instead, it prepares the necessary environment for model deployment, i.e., it sets the necessary dependencies in an image.
+
+```bash
+# Open a terminal in the SageMaker Jupyter Lab instance
+cd .../mlflow-housing-price-example
+# We should see the conda.yaml in here
+
+# Build parametrized image and push it to ECR
+# --container: image name
+# --env-manager: local, virtualenv, conda
+mlflow sagemaker build-and-push-container --container xgb --env-manager conda
+```
+
+We can check that the image is pushed to AWS ECR
+
+    Search: ECR
+    Private registry (left panel): Repositories - the image with the name in --container should be there
+      We can copy the image URI, e.g.
+      <ID>.ecr.<region>.amazonaws.com/<image-name>:<>
+
+After the image is pushed, we deploy a container of it by running `deploy.py`, where many image parameters are defined:
+
+- Bucket name
+- Image URL
+- Instance type
+- Endpoint name
+- Model URI
+- ...
+
+These parameters are passed to the function [create_deployment](https://mlflow.org/docs/latest/python_api/mlflow.sagemaker.html?highlight=create_deployment#mlflow.sagemaker.SageMakerDeploymentClient.create_deployment):
+
+```python
+import mlflow.sagemaker
+from mlflow.deployments import get_deploy_client
+
+# Specify a unique endpoint name (lower letters)
+# FIXME: some the following should be (environment/repo) variables
+endpoint_name = "house-price-prod"
+# Get model URI from MLflow model registry (hosted on AWS)
+model_uri = "s2://<bucket-name>/..."
+# Get from IAM roles
+execution_role_arn = "arn:aws:aim:..."
+# Get from S3
+bucket_name = "..."
+# Get from ECR: complete image name with tag
+image_url = "<ID>.ecr.eu-central.<region>.amazonaws.com/<image-name>:<tag>"
+flavor = "python_function"
+
+# Define the missing configuration parameters as a dictionary:
+# region, instance type, instance count, etc.
+config = {
+    "execution_role_arn": execution_role_arn,
+    "bucket_name": bucket_name,
+    "image_url": image_url,
+    "region_name": "eu-central-1", # usually, same as rest of services
+    "archive": False,
+    "instance_type": "ml.m5.xlarge", # https://aws.amazon.com/sagemaker/pricing/instance-types/
+    "instance_count": 1,
+    "synchronous": True
+}
+
+# Initialize a deployment client for SageMaker
+client = get_deploy_client("sagemaker")
+
+# Create the deployment
+client.create_deployment(
+    name=endpoint_name,
+    model_uri=model_uri,
+    flavor=flavor,
+    config=config,
+)
+```
+
+After we have modified manually the `deploy.py` in the AWS Jupyter Lab instance, we can run it on a Terminal:
+
+```bash
+# Go to folder
+cd .../mlflow-housing-price-example
+
+# Install mlflow, if not present (e.g., if the notebook was re-started)
+pip install mlflow
+
+# Deploy: This takes 5 minutes...
+python deploy.py
+```
+
+When the deployment finished, we should see an endpoint entry in AWS:
+
+    Search: Sagemaker
+    Inference (left menu/panel) > Endpoints
+      house-price-prod should be there
+
+Now, the endpoint is up and running, ready to be used for inferences.
+
 ### Model Inference
+
+Finally, we can run the inference, either locally (if the `.env` file is properly set) or remotely (in the Sagemaker notebook instance); this is the script `predict.py` for that:
+
+```python
+from data import test
+import boto3
+import json
+from dotenv import load_dotenv
+
+# Load environment variables in .env:
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
+load_dotenv()
+
+# Defined in deploy.py
+# FIXME: These values should be (environment/repo) variables
+endpoint_name = "house-price-prod"
+region = 'eu-central-1'
+
+sm = boto3.client('sagemaker', region_name=region)
+smrt = boto3.client('runtime.sagemaker', region_name=region)
+
+test_data_json = json.dumps({'instances': test[:20].toarray()[:, :-1].tolist()})
+
+prediction = smrt.invoke_endpoint(
+    EndpointName=endpoint_name,
+    Body=test_data_json,
+    ContentType='application/json'
+)
+
+prediction = prediction['Body'].read().decode("ascii")
+
+print(prediction)
+```
+
+### Clean Up
+
+We need to remove these AWS services (in the region we have worked):
+
+- A
+- B
 
 ## Authorship
 
